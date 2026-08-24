@@ -1,0 +1,10 @@
+[project]
+name = "contact-cards"
+version = "0.1.0"
+description = "POC project for contact card ingestion in the context of BYOH x Correlaid"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["fastapi>=0.141.1", "streamlit>=1.62.0", "uvicorn>=0.52.4"]
+
+[dependency-groups]
+dev = ["ruff>=0.16.4"]
