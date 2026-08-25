@@ -7,14 +7,6 @@ from dataclasses import dataclass
 CACHE_PATH = Path(__file__).parent / ".cache"
 
 
-class UUIDEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, UUID):
-            # if the obj is uuid, we simply return the value of uuid
-            return str(obj)
-        return json.JSONEncoder.default(self, obj)
-
-
 @dataclass(frozen=True, kw_only=True)
 class CacheEntry:
     hash_key: str
@@ -63,14 +55,3 @@ class CacheEntry:
             cache_entries.append(cls.load(path.stem))
 
         return cache_entries
-
-
-if __name__ == "__main__":
-    file = Path("../../.gitignore")
-
-    hash_key = CacheEntry.get_hash_key(file)
-    cache_entry = CacheEntry(hash_key=hash_key, name="Test", company="Test")
-
-    cache_entry.save()
-
-    print(CacheEntry.all_entries())
