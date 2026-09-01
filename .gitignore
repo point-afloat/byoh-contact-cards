@@ -5,6 +5,20 @@ build/
 dist/
 wheels/
 *.egg-info
+.ruff_cache/
+.pytest_cache/
 
 # Virtual environments
-.venv
+.venv/
+
+# Environment / secrets
+.env
+
+# OS
+.DS_Store
+
+# Contact cards
+*.pdf
+*.jpg
+*.jpeg
+*.png

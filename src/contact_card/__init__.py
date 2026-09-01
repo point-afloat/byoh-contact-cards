@@ -1,0 +1,17 @@
+"""
+Contact Card: a small tool for extracting contact info from scanned/handwritten cards.
+Run `uv run contact-card` to launch the review UI.
+"""
+
+import subprocess
+import sys
+from pathlib import Path
+
+
+def main() -> None:
+    """Launches the contact card review UI in Streamlit."""
+    review_app = Path(__file__).parent / "review.py"
+    try:
+        subprocess.run([sys.executable, "-m", "streamlit", "run", str(review_app)])
+    except KeyboardInterrupt:
+        pass
