@@ -1,8 +1,8 @@
 # tests/test_ingestion.py
 
 import pytest
-from ingestion.ingestion import extract_fields
 from PIL import Image
+
 from ingestion.ingestion import ExtractedField, extract_fields, extract_with_tesseract
 
 

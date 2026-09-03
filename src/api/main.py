@@ -1,9 +1,10 @@
 # src/api/main.py
 
-from fastapi import FastAPI
-from api.routes.extract import router as extract_router
-
 import logging
+
+from fastapi import FastAPI
+
+from api.routes.extract import router as extract_router
 
 logging.basicConfig(
     level=logging.INFO,

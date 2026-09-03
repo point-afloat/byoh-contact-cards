@@ -4,14 +4,15 @@ import base64
 import io
 import json
 import logging
-import time
 import os
+import time
+
 import easyocr
 import httpx
 import numpy as np
 import pytesseract
-from PIL import Image
 from dotenv import load_dotenv
+from PIL import Image
 from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger(__name__)

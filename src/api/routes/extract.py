@@ -2,10 +2,12 @@
 
 import tempfile
 from pathlib import Path
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pdf2image import convert_from_path
 from PIL import Image
 from pydantic import BaseModel
+
 from ingestion.ingestion import ExtractedField, extract_fields
 
 router = APIRouter()
@@ -21,7 +23,7 @@ class ExtractResponse(BaseModel):
 
 @router.post("/extract", response_model=ExtractResponse)
 async def extract(
-    file: UploadFile = File(...), engine: str = "tesseract"
+    file: UploadFile = File(...), engine: str = "tesseract"  # noqa: B008
 ) -> ExtractResponse:
     """Extract contact fields from an uploaded card (PDF or image)."""
     if engine not in ALLOWED_ENGINES:

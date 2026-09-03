@@ -13,6 +13,9 @@ def main() -> None:
     """Launches the contact card review UI in Streamlit."""
     review_app = Path(__file__).parent.parent / "review" / "app.py"
     try:
-        subprocess.run([sys.executable, "-m", "streamlit", "run", str(review_app)])
+        subprocess.run(
+            [sys.executable, "-m", "streamlit", "run", str(review_app)],
+            check=False,
+        )
     except KeyboardInterrupt:
         pass
