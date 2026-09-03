@@ -11,7 +11,7 @@ from pathlib import Path
 
 def main() -> None:
     """Launches the contact card review UI in Streamlit."""
-    review_app = Path(__file__).parent.parent / "streamlit" / "Review.py"
+    review_app = Path(__file__).parent.parent / "review" / "app.py"
     try:
         subprocess.run(
             [sys.executable, "-m", "streamlit", "run", str(review_app)],
