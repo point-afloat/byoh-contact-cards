@@ -15,6 +15,7 @@ dependencies = [
   "pandas>=3.0.5",
   "pdf2image>=1.17.0",
   "pillow>=12.3.0",
+  "pydantic>=2.13.5",
   "pytesseract>=0.3.13",
   "python-dotenv>=1.2.3",
   "python-multipart>=0.0.32",
@@ -31,7 +32,7 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = "src"
-module-name = ["api", "ingestion", "review", "cli"]
+module-name = ["api", "ingestion", "extraction", "streamlit", "cli"]
 
 [tool.mypy]
 ignore_missing_imports = false
