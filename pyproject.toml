@@ -15,17 +15,29 @@ dependencies = [
   "pdf2image>=1.17.0",
   "pillow>=12.3.0",
   "pytesseract>=0.3.13",
+  "python-dotenv>=1.2.3",
   "python-multipart>=0.0.32",
   "streamlit>=1.62.0",
   "uvicorn>=0.52.4",
 ]
 
 [project.scripts]
-contact-card = "contact_card:main"
+contact-card = "cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+module-root = "src"
+module-name = ["api", "ingestion", "review", "cli"]
+
+[tool.mypy]
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = ["easyocr.*", "pytesseract.*"]
+ignore_missing_imports = true
+
 [dependency-groups]
-dev = ["ruff>=0.16.4"]
+dev = ["httpx2>=2.12.0", "mypy>=2.3.1", "pytest>=9.1.1", "ruff>=0.16.4"]

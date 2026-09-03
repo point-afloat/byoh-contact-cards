@@ -1,12 +1,18 @@
-# src/contact_card/review.py
+# src/review/app.py
 
 import streamlit as st
 from pdf2image import convert_from_path
 from PIL import Image
 import tempfile
 import os
+import logging
 
-from contact_card.ingestion import extract_fields
+from ingestion.ingestion import extract_fields
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 
 st.set_page_config(page_title="Contact Card Review", layout="wide")
 st.title("Contact Card Review")
@@ -27,12 +33,12 @@ uploaded_file = st.file_uploader(
 )
 
 engine = st.radio(
-    "OCR engine",
-    options=["easyocr", "tesseract", "qwen_vl"],
+    "OCR engine/SVLM",
+    options=["tesseract", "easyocr", "local_vlm"],
     horizontal=True,
     help=(
-        "EasyOCR: local deep-learning OCR, decent on handwriting. "
         "Tesseract: fast, classical OCR, weak on handwriting. "
+        "EasyOCR: local deep-learning OCR, decent on handwriting. "
         "Qwen VL: local vision LLM via LM Studio — requires LM Studio "
         "running with a Qwen3-VL model loaded."
     ),
@@ -46,7 +52,11 @@ if uploaded_file is not None:
 
     if suffix.lower() == ".pdf":
         pages = convert_from_path(tmp_path)
-        image = pages[0]  # POC: just handle the first page for now
+        if len(pages) > 1:
+            st.warning(
+                f"This PDF has {len(pages)} pages — only the first page is processed."
+            )
+        image = pages[0]
     else:
         image = Image.open(tmp_path)
 
@@ -67,13 +77,13 @@ if uploaded_file is not None:
             results = []
 
         for i, field in enumerate(results):
-            confidence = field["confidence"]
+            confidence = field.confidence
             label = (
                 f"Field {i + 1} (confidence: {confidence:.2f})"
                 if confidence is not None
                 else f"Field {i + 1}"
             )
-            st.text_input(label, value=field["text"], key=f"field_{i}_{engine}")
+            st.text_input(label, value=field.text, key=f"field_{i}_{engine}")
 
     os.unlink(tmp_path)
 else:
