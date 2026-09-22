@@ -1,10 +1,43 @@
 [project]
-name = "contact-cards"
+name = "contact-card"
 version = "0.1.0"
-description = "POC project for contact card ingestion in the context of BYOH x Correlaid"
+description = "Add your description here"
 readme = "README.md"
+authors = [
+  { name = "Aaron-Elihu", email = "65421861+Aaron-Elihu@users.noreply.github.com" },
+  { name = "Florian Meier", email = "florian.meier@tutamail.com" },
+]
 requires-python = ">=3.12"
-dependencies = ["fastapi>=0.141.1", "streamlit>=1.62.0", "uvicorn>=0.52.4"]
+dependencies = [
+  "easyocr>=1.7.2",
+  "fastapi>=0.141.1",
+  "httpx>=0.28.1",
+  "pdf2image>=1.17.0",
+  "pillow>=12.3.0",
+  "pytesseract>=0.3.13",
+  "python-dotenv>=1.2.3",
+  "python-multipart>=0.0.32",
+  "streamlit>=1.62.0",
+  "uvicorn>=0.52.4",
+]
+
+[project.scripts]
+contact-card = "cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = ["api", "ingestion", "review", "cli"]
+
+[tool.mypy]
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = ["easyocr.*", "pytesseract.*"]
+ignore_missing_imports = true
 
 [dependency-groups]
-dev = ["ruff>=0.16.4"]
+dev = ["httpx2>=2.12.0", "mypy>=2.3.1", "pytest>=9.1.1", "ruff>=0.16.4"]
