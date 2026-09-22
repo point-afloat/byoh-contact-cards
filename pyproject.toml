@@ -32,7 +32,7 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = "src"
-module-name = ["api", "ingestion", "extraction", "streamlit", "cli"]
+module-name = ["api", "ingestion", "extraction", "review", "cli"]
 
 [tool.mypy]
 ignore_missing_imports = false
