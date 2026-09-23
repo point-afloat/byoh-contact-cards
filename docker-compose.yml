@@ -1,0 +1,9 @@
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "${OLLAMA_PORT:-1234}:11434"
+    environment:
+      - MODEL_NAME=${LOCAL_LLM_MODEL_NAME}
+    entrypoint: ["sh", "-c", "ollama serve & sleep 2 && ollama pull $$MODEL_NAME && wait"]

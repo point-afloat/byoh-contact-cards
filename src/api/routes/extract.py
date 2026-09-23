@@ -8,22 +8,22 @@ from pdf2image import convert_from_path
 from PIL import Image
 from pydantic import BaseModel
 
-from ingestion.ingestion import ExtractedField, extract_fields
+from ingestion.ingestion import Contact, extract_fields
 
 router = APIRouter()
 
-ALLOWED_ENGINES = {"tesseract", "easyocr", "local_vlm"}
+ALLOWED_ENGINES = {"local_vlm"}
 
 
 class ExtractResponse(BaseModel):
     engine: str
-    fields: list[ExtractedField]
+    contact: Contact
     warning: str | None = None
 
 
 @router.post("/extract", response_model=ExtractResponse)
 async def extract(
-    file: UploadFile = File(...), engine: str = "tesseract"  # noqa: B008
+    file: UploadFile = File(...), engine: str = "local_vlm"  # noqa: B008
 ) -> ExtractResponse:
     """Extract contact fields from an uploaded card (PDF or image)."""
     if engine not in ALLOWED_ENGINES:
@@ -50,7 +50,7 @@ async def extract(
             page_count = 1
 
         try:
-            results = extract_fields(image, engine=engine)
+            contact = extract_fields(image, engine=engine)
         except RuntimeError as e:
             raise HTTPException(status_code=503, detail=str(e)) from e
 
@@ -60,6 +60,6 @@ async def extract(
             else None
         )
 
-        return ExtractResponse(engine=engine, fields=results, warning=warning_msg)
+        return ExtractResponse(engine=engine, contact=contact, warning=warning_msg)
     finally:
         Path(tmp_path).unlink(missing_ok=True)
