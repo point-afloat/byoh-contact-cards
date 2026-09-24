@@ -85,7 +85,18 @@ def extract_with_local_vlm(image: Image.Image) -> Contact:
                 "content": (
                     "Extract the contact's fields from this handwritten "
                     "or printed card and return them matching the given "
-                    "schema. Leave a field null if it isn't present."
+                    "schema. Leave a field null if it isn't present.\n\n"
+                    "For the person's name: always extract one if any "
+                    "personal name is visible on the card — do not leave "
+                    "both first_name and last_name empty if a name appears. "
+                    "Split it into first_name (given name(s)) and "
+                    "last_name (family name/surname). If the name is "
+                    "written as 'Lastname, Firstname' (surname first, "
+                    "then a comma), first_name is the part after the "
+                    "comma and last_name is the part before it. "
+                    "Otherwise, the last word of the name is the "
+                    "last_name and everything before it is the "
+                    "first_name."
                 ),
                 "images": [image_b64],
             }
