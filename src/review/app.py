@@ -92,10 +92,71 @@ if uploaded_file is not None:
         os.unlink(tmp_path)
 
         if contact is not None:
+            selected_company_id: int | None = None
+
             for field_name in type(contact).model_fields:
                 label = field_name.replace("_", " ").title()
                 value = getattr(contact, field_name) or ""
                 st.text_input(label, value=value, key=f"{field_name}_{key_suffix}")
+
+                if field_name == "company":
+                    # FundraisingBox models donors as companies (existing
+                    # records have no first/last name at all), so linking to
+                    # an existing company via company_id — rather than
+                    # sending a free-text company_name alongside a person's
+                    # identity fields — is what avoids the "not_editable"
+                    # error on first_name/last_name/salutation. Re-search
+                    # only when the company text actually changes, not on
+                    # every rerun. Rendered right under the Company field
+                    # itself since it's directly acting on that value.
+                    company_value = st.session_state.get(f"company_{key_suffix}", "")
+                    matches_key = f"company_matches_{key_suffix}"
+                    searched_for_key = f"company_matches_query_{key_suffix}"
+
+                    if (
+                        company_value
+                        and st.session_state.get(searched_for_key) != company_value
+                    ):
+                        try:
+                            with st.spinner(
+                                f"Searching FundraisingBox for '{company_value}'..."
+                            ):
+                                st.session_state[matches_key] = search_companies(
+                                    company_value
+                                )
+                        except RuntimeError as e:
+                            st.error(f"FundraisingBox company search failed: {e}")
+                            st.session_state[matches_key] = []
+                        st.session_state[searched_for_key] = company_value
+
+                    matches = st.session_state.get(matches_key) or []
+                    match_options: list[tuple[str, int | None]] = [
+                        ("Don't link — keep company name as a note only", None)
+                    ]
+                    for m in matches:
+                        addresses = m.get("fb_person_addresses") or []
+                        city = addresses[0].get("city") if addresses else None
+                        match_label = m["company_name"] + (f" — {city}" if city else "")
+                        match_options.append((match_label, m["id"]))
+
+                    if company_value:
+                        if matches:
+                            plural = "y" if len(matches) == 1 else "ies"
+                            st.caption(
+                                f"Found {len(matches)} matching compan{plural} "
+                                "in FundraisingBox."
+                            )
+                        else:
+                            st.caption("No matching company found in FundraisingBox.")
+
+                    selected_match = st.selectbox(
+                        "↳ Link to existing FundraisingBox company",
+                        options=match_options,
+                        format_func=lambda o: o[0],
+                        key=f"company_match_{key_suffix}",
+                    )
+                    assert selected_match is not None  # non-empty options
+                    selected_company_id = selected_match[1]
 
             salutation = st.selectbox(
                 "Salutation",
@@ -104,51 +165,6 @@ if uploaded_file is not None:
                 key=f"salutation_{key_suffix}",
             )
             assert salutation is not None  # non-empty options, always selected
-
-            # FundraisingBox models donors as companies (existing records
-            # have no first/last name at all), so linking to an existing
-            # company via company_id — rather than sending a free-text
-            # company_name alongside a person's identity fields — is what
-            # avoids the "not_editable" error on first_name/last_name/
-            # salutation. Re-search only when the company text actually
-            # changes, not on every rerun.
-            company_value = st.session_state.get(f"company_{key_suffix}", "")
-            matches_key = f"company_matches_{key_suffix}"
-            searched_for_key = f"company_matches_query_{key_suffix}"
-
-            if company_value and st.session_state.get(searched_for_key) != company_value:
-                try:
-                    with st.spinner(f"Searching FundraisingBox for '{company_value}'..."):
-                        st.session_state[matches_key] = search_companies(company_value)
-                except RuntimeError as e:
-                    st.error(f"FundraisingBox company search failed: {e}")
-                    st.session_state[matches_key] = []
-                st.session_state[searched_for_key] = company_value
-
-            matches = st.session_state.get(matches_key) or []
-            match_options: list[tuple[str, int | None]] = [
-                ("Don't link — keep company name as a note only", None)
-            ]
-            for m in matches:
-                addresses = m.get("fb_person_addresses") or []
-                city = addresses[0].get("city") if addresses else None
-                label = m["company_name"] + (f" — {city}" if city else "")
-                match_options.append((label, m["id"]))
-
-            if company_value:
-                if matches:
-                    st.caption(f"Found {len(matches)} matching compan{'y' if len(matches) == 1 else 'ies'} in FundraisingBox.")
-                else:
-                    st.caption("No matching company found in FundraisingBox.")
-
-            selected_match = st.selectbox(
-                "Link to existing FundraisingBox company",
-                options=match_options,
-                format_func=lambda o: o[0],
-                key=f"company_match_{key_suffix}",
-            )
-            assert selected_match is not None  # non-empty options, always selected
-            selected_company_id = selected_match[1]
 
             if st.button("Send to FundraisingBox"):
                 first_name = st.session_state.get(f"first_name_{key_suffix}", "")
