@@ -52,10 +52,12 @@ def test_extract_with_local_vlm_parses_content(monkeypatch):
     monkeypatch.setattr(
         httpx,
         "post",
-        lambda *a, **k: _FakeResponse({"role": "assistant", "content": '{"name": "Alice"}'}),
+        lambda *a, **k: _FakeResponse(
+            {"role": "assistant", "content": '{"first_name": "Alice"}'}
+        ),
     )
     contact = extract_with_local_vlm(_dummy_image())
-    assert contact == Contact(name="Alice")
+    assert contact == Contact(first_name="Alice")
 
 
 def test_extract_with_local_vlm_falls_back_to_thinking_block(monkeypatch):
@@ -66,12 +68,12 @@ def test_extract_with_local_vlm_falls_back_to_thinking_block(monkeypatch):
             {
                 "role": "assistant",
                 "content": "",
-                "thinking": 'reasoning... {"name": "Bob"}',
+                "thinking": 'reasoning... {"first_name": "Bob"}',
             }
         ),
     )
     contact = extract_with_local_vlm(_dummy_image())
-    assert contact == Contact(name="Bob")
+    assert contact == Contact(first_name="Bob")
 
 
 def test_extract_with_local_vlm_raises_on_invalid_json(monkeypatch):
