@@ -55,7 +55,8 @@ class Contact(BaseModel):
     no changes needed there.
     """
 
-    name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     company: str | None = None
     job_title: str | None = None
     phone: str | None = None
@@ -93,12 +94,18 @@ def extract_with_local_vlm(image: Image.Image) -> Contact:
         "think": False,
         "stream": False,
         "options": {
-            "temperature": 0,
+            # Fully greedy decoding (temperature=0) with no repeat penalty can
+            # get stuck in a repetition loop inside an unconstrained JSON
+            # string value and never reach the closing quote/brace before
+            # hitting num_predict. A small temperature plus a repeat penalty
+            # gives it enough randomness to break out of that.
+            "temperature": 0.1,
+            "repeat_penalty": 1.15,
             "num_predict": LOCAL_LLM_NUM_PREDICT,
         },
     }
 
-    logger.info("Sending request to Qwen3-VL via %s (%s)...", url, LOCAL_LLM_MODEL_NAME)
+    logger.info("Sending request to %s (model=%s)...", url, LOCAL_LLM_MODEL_NAME)
     start = time.monotonic()
 
     try:
@@ -108,7 +115,7 @@ def extract_with_local_vlm(image: Image.Image) -> Contact:
         logger.error("Could not reach the local LLM server at %s", url)
         raise RuntimeError(
             "Could not reach the local LLM server. Make sure it's running with "
-            f"a Qwen3-VL model loaded and serving at {url}."
+            f"a vision model loaded and serving at {url}."
         ) from e
     except httpx.HTTPStatusError as e:
         raise RuntimeError(
@@ -116,7 +123,7 @@ def extract_with_local_vlm(image: Image.Image) -> Contact:
         ) from e
 
     elapsed = time.monotonic() - start
-    logger.info("Qwen3-VL responded in %.2fs", elapsed)
+    logger.info("%s responded in %.2fs", LOCAL_LLM_MODEL_NAME, elapsed)
 
     message = response.json()["message"]
     content = message.get("content") or ""
@@ -129,7 +136,7 @@ def extract_with_local_vlm(image: Image.Image) -> Contact:
         return Contact.model_validate_json(content)
     except (json.JSONDecodeError, ValidationError) as e:
         raise RuntimeError(
-            f"Qwen3-VL did not return a valid Contact JSON: {content!r}"
+            f"{LOCAL_LLM_MODEL_NAME} did not return a valid Contact JSON: {content!r}"
         ) from e
 
 
