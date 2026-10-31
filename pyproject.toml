@@ -1,0 +1,44 @@
+[project]
+name = "contact-card-importer"
+version = "0.1.0"
+description = "Scan contact cards, review the extracted data and send it to FundraisingBox."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "httpx>=0.27",
+  "pillow>=10.4",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+  "python-multipart>=0.0.9",
+  "uvicorn>=0.30",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.11",
+  "pre-commit>=4.7.0",
+  "pytest>=8.3",
+  "respx>=0.21",
+  "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
