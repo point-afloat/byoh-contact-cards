@@ -1,0 +1,16 @@
+# Local hooks that call the project's own ruff (`uv run`), so the version always matches
+# uv.lock and the Claude Code hook in .claude/hooks/ruff-python.sh. Rules live in pyproject.toml.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (with fixes)
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
