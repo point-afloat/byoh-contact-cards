@@ -1,0 +1,23 @@
+# Keep the build context small and make sure no local secrets or caches enter the image.
+.git
+.gitignore
+.venv
+**/__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.env
+.env.*
+data
+node_modules
+frontend/node_modules
+frontend/dist
+tests
+docs
+scripts
+openspec
+.claude
+.pre-commit-config.yaml
+Dockerfile
+docker-compose.yml
+*.md

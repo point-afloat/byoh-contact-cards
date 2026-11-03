@@ -1,0 +1,21 @@
+# Local parity with the production container: same image, a named volume at /data, and settings
+# from .env (copy .env.example). Run: docker compose up --build
+services:
+  app:
+    build: .
+    image: contact-card-importer:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Always /data inside the container, whatever DATA_DIR says in .env for non-Docker runs.
+      DATA_DIR: /data
+    ports:
+      # Same port inside and out. Set PORT in .env to change it (default 8080).
+      - "${PORT:-8080}:${PORT:-8080}"
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+
+volumes:
+  app-data:
