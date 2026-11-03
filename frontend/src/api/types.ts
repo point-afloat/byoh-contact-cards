@@ -7,6 +7,11 @@ export type SessionOut = components["schemas"]["SessionOut"];
 export type SendRequest = components["schemas"]["SendRequest"];
 export type CompanyChoice = components["schemas"]["CompanyChoice"];
 export type CompanyMatch = components["schemas"]["CompanyMatch"];
+export type MeOut = components["schemas"]["MeOut"];
+export type UserOut = components["schemas"]["UserOut"];
+export type UserPatch = components["schemas"]["UserPatch"];
+export type InviteOut = components["schemas"]["InviteOut"];
+export type InviteInfoOut = components["schemas"]["InviteInfoOut"];
 
 export const CONTACT_FIELD_NAMES = [
   "salutation",

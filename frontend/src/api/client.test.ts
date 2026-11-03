@@ -58,3 +58,20 @@ test("encodes the company query", async () => {
   await api.searchCompanies("Müller & Söhne");
   expect(query).toBe("Müller & Söhne");
 });
+
+test("every request carries the custom header the server requires for writes", async () => {
+  const seen: Array<string | null> = [];
+  server.use(
+    http.post("*/api/auth/logout", ({ request }) => {
+      seen.push(request.headers.get("x-requested-with"));
+      return HttpResponse.json({ status: "ok" });
+    }),
+    http.get("*/api/auth/me", ({ request }) => {
+      seen.push(request.headers.get("x-requested-with"));
+      return HttpResponse.json({ id: 1, email: "a@b.org", role: "admin" });
+    }),
+  );
+  await api.logout();
+  await api.me();
+  expect(seen).toEqual(["XMLHttpRequest", "XMLHttpRequest"]);
+});

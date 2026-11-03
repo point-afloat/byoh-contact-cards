@@ -1,5 +1,15 @@
 import { strings } from "@/strings";
-import type { CompanyMatch, Contact, SendRequest, SessionOut } from "./types";
+import type {
+  CompanyMatch,
+  Contact,
+  InviteInfoOut,
+  InviteOut,
+  MeOut,
+  SendRequest,
+  SessionOut,
+  UserOut,
+  UserPatch,
+} from "./types";
 
 /** Error from the backend's uniform `{code, message, errors?}` body (or a network failure). */
 export class ApiClientError extends Error {
@@ -23,7 +33,11 @@ function url(path: string): string {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url(path), init);
+    // A custom header on every request is what the server checks to stop cross-site writes.
+    response = await fetch(url(path), {
+      ...init,
+      headers: { "X-Requested-With": "XMLHttpRequest", ...(init?.headers as Record<string, string>) },
+    });
   } catch {
     throw new ApiClientError(0, "network_error", strings.networkError);
   }
@@ -64,5 +78,28 @@ export const api = {
     request<SessionOut>(`/api/sessions/${encodeURIComponent(id)}/send`, json("POST", body)),
   searchCompanies: (query: string) =>
     request<CompanyMatch[]>(`/api/companies?q=${encodeURIComponent(query)}`),
+  me: () => request<MeOut>("/api/auth/me"),
+  login: (email: string, password: string) =>
+    request<MeOut>("/api/auth/login", json("POST", { email, password })),
+  logout: () => request<{ status: string }>("/api/auth/logout", { method: "POST" }),
+  changePassword: (current_password: string, new_password: string) =>
+    request<{ status: string }>(
+      "/api/auth/change-password",
+      json("POST", { current_password, new_password }),
+    ),
+  inviteInfo: (token: string) =>
+    request<InviteInfoOut>("/api/auth/invite-info", json("POST", { token })),
+  acceptInvite: (token: string, password: string) =>
+    request<MeOut>("/api/auth/accept-invite", json("POST", { token, password })),
+  listUsers: () => request<UserOut[]>("/api/admin/users"),
+  inviteUser: (email: string, role: string) =>
+    request<InviteOut>("/api/admin/users", json("POST", { email, role })),
+  reissueInvite: (id: number) => request<InviteOut>(`/api/admin/users/${id}/invite`, { method: "POST" }),
+  revokeInvite: (id: number) =>
+    request<{ status: string }>(`/api/admin/users/${id}/invite`, { method: "DELETE" }),
+  updateUser: (id: number, patch: UserPatch) =>
+    request<UserOut>(`/api/admin/users/${id}`, json("PATCH", patch)),
+  issueResetLink: (id: number) =>
+    request<InviteOut>(`/api/admin/users/${id}/reset-link`, { method: "POST" }),
   imageUrl: (id: string) => `/api/sessions/${encodeURIComponent(id)}/image`,
 };
