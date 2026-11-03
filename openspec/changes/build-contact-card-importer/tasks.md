@@ -41,6 +41,6 @@
 
 ## 6. Serving, documentation and integration check
 
-- [ ] 6.1 Serve `frontend/dist` from FastAPI with SPA fallback, and add a multi-stage Dockerfile building frontend then backend; verify `docker build` and that the container serves the app and `/api/health`
+- [x] 6.1 (delivered by `add-sliplane-docker-deployment`: SPA serving in `app/spa.py`, the `Dockerfile`, and `scripts/smoke-container.sh`) Serve `frontend/dist` from FastAPI with SPA fallback, and add a multi-stage Dockerfile building frontend then backend; verify `docker build` and that the container serves the app and `/api/health`
 - [ ] 6.2 Write README (backend and frontend setup, Node prerequisite, `npm run dev`/`build`, env vars, switching model endpoint, privacy note for hosted Mistral, single-worker/no-auth deployment note) and verify a fresh clone follows it to a running app
 - [ ] 6.3 Run end-to-end on 5–10 real sample cards from a phone (including the camera capture on iOS Safari and Android Chrome, and whether iPhone photos arrive as HEIC) against a FundraisingBox test account (or dry-run mode if no sandbox exists) and verify created persons contain expected data; run `ruff`, `mypy`, `pytest`, `eslint`, `tsc`, `vitest` clean
