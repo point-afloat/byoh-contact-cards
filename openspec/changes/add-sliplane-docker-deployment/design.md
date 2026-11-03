@@ -9,7 +9,8 @@ Observed from Sliplane's public docs (checked while planning; re-verify at imple
 - Sliplane sets a `PORT` env var (8080–65535) the service must listen on; one public port per service.
 - Health check defaults to `/`, must return 2xx **without authentication**, and gates traffic shifting on deploy.
 - Sliplane documents a basic-auth proxy pattern, but no built-in app login. An earlier version of this design used that proxy; it was dropped because users would then live in proxy config and need a developer to change (see `add-user-accounts`).
-- Volume mount details were not confirmed from the docs and must be checked.
+- Volumes belong to a server and are mounted at an absolute container path (here `/data`); attaching one redeploys the service. `SLIPLANE_USER_ID` / `SLIPLANE_GROUP_ID` set who owns the attached volume, so they are set to `10001`, the uid/gid the container runs as. Volumes **disable zero-downtime deploys**: the old container stops before the new one starts.
+- The Git deploy source is GitHub only; a registry image works regardless of where the code is hosted. Runtime environment variables need no `ARG`; secrets can be marked secret.
 
 ## Goals / Non-Goals
 
@@ -42,7 +43,8 @@ Observed from Sliplane's public docs (checked while planning; re-verify at imple
 ## Risks / Trade-offs
 
 - [App exposed publicly before auth exists] → this change must not be deployed publicly without `add-user-accounts`; runbook states it as a precondition and the first-deploy checklist verifies anonymous requests get 401.
-- [Volume lost or misconfigured, users disappear] → startup/health check for writable `DATA_DIR`, runbook step to verify the mount survives a redeploy, bootstrap admin recreates access.
+- [Volume lost or misconfigured, users disappear] → startup/health check for writable `DATA_DIR`, `SLIPLANE_USER_ID`/`SLIPLANE_GROUP_ID` set to `10001` so the non-root user owns the mount, runbook step to verify the mount survives a redeploy, bootstrap admin recreates access.
+- [A release that fails to start causes downtime, because volumes disable zero-downtime deploys] → the health check gates traffic and a failed build keeps the old deployment; run the smoke script (`scripts/smoke-container.sh`) before releasing and keep the previous image tag to roll back.
 - [In-memory review sessions lost on redeploy or crash] → spec requires a clear "session expired, rescan" message; acceptable for a low-volume tool.
 - [Sliplane docs or UI change] → runbook links the official pages and is verified during the first real deployment.
 - [Image size / build time (Node + Python)] → multi-stage build, slim bases, cached dependency layers.
