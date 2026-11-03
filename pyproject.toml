@@ -4,12 +4,15 @@ version = "0.1.0"
 description = "Scan contact cards, review the extracted data and send it to FundraisingBox."
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.20.1",
+  "argon2-cffi>=25.1.0",
   "fastapi>=0.115",
   "httpx>=0.27",
   "pillow>=10.4",
   "pydantic>=2.8",
   "pydantic-settings>=2.4",
   "python-multipart>=0.0.9",
+  "sqlalchemy>=2.1.6",
   "uvicorn>=0.30",
 ]
 
