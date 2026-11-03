@@ -18,6 +18,16 @@ schema: spec-driven
 #       - Always state what is out of scope
 #     tasks:
 #       - Break tasks into chunks of max 2 hours
+rules:
+  tasks:
+    # A stop built into the plan: the agent cannot commit, so it has to stop at this task.
+    - >-
+      End every task group with a checkpoint task for the owner, written as
+      "- [ ] N.M Checkpoint: owner reviews and commits this group (tasks N.1 to N.M-1)".
+      The agent must never tick it. It stops there, and the owner ticks it after committing.
+    - >-
+      Name each test file after the module it tests: app/x.py -> tests/test_x.py.
+      End every task with its files, written as "(files: app/x.py, tests/test_x.py)".
 
 # Per-operation guidance (optional)
 # Add advisory guidance for how apply and archive work should be conducted.
