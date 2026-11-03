@@ -1,6 +1,7 @@
 import io
 import json
 from collections.abc import Iterator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -8,10 +9,9 @@ import respx
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.config import load_settings
 from app.fundraisingbox.client import PERSONS_URL
-from app.main import create_app
-from app.services import Services, build_services
+from app.services import Services
+from tests.auth_helpers import make_services, running, sign_in, web_client
 
 LLM_URL = "https://llm.example/v1/chat/completions"
 CARD = {
@@ -29,26 +29,15 @@ def jpeg() -> bytes:
     return buf.getvalue()
 
 
-def make_services(token: str | None = "fb-secret-token-123") -> Services:
-    return build_services(
-        load_settings(
-            _env_file=None,
-            llm_base_url="https://llm.example/v1",
-            llm_model="tiny",
-            llm_api_key="k",
-            fundraisingbox_apitoken=token,
-        )
-    )
-
-
 @pytest.fixture
-def services() -> Services:
-    return make_services()
+def services(tmp_path: Path) -> Services:
+    return make_services(tmp_path, llm_base_url="https://llm.example/v1")
 
 
 @pytest.fixture
 def client(services: Services) -> Iterator[TestClient]:
-    with TestClient(create_app(services)) as test_client:
+    with web_client(services) as test_client:
+        sign_in(test_client)
         yield test_client
 
 
@@ -232,9 +221,10 @@ def test_retry_after_person_failure_does_not_create_the_company_twice(client: Te
 
 
 @respx.mock
-def test_missing_token_makes_no_request() -> None:
-    bare = make_services(token=None)
-    with TestClient(create_app(bare)) as client:
+def test_missing_token_makes_no_request(tmp_path: Path) -> None:
+    bare = make_services(tmp_path, fundraisingbox_apitoken=None)
+    with web_client(bare) as client:
+        sign_in(client)
         route = respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 1}))
         session_id = open_session(client)
         res = send(client, session_id, CARD)
@@ -284,3 +274,17 @@ def test_sent_contact_is_not_editable_and_not_logged(
     assert "fb-secret-token-123" not in caplog.text
     edit = client.put(f"/api/sessions/{session_id}", json=CARD)
     assert edit.status_code == 409 and edit.json()["code"] == "already_sent"
+
+
+@respx.mock
+def test_processing_and_sending_a_card_writes_nothing_to_the_data_dir(tmp_path: Path) -> None:
+    respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 1}))
+    with running(tmp_path) as (client, _):
+        sign_in(client)
+        session_id = open_session(client)
+        client.put(f"/api/sessions/{session_id}", json=CARD)
+        assert send(client, session_id, CARD).status_code == 200
+    # persistent storage is for accounts only: nothing but the account database, and no card
+    # image or contact data inside it
+    assert [p.name for p in tmp_path.iterdir()] == ["app.db"]
+    assert b"anna@acme.org" not in (tmp_path / "app.db").read_bytes()

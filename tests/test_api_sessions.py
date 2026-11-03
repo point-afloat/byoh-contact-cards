@@ -1,6 +1,7 @@
 import io
 import json
 from collections.abc import Iterator
+from pathlib import Path
 
 import httpx
 import pytest
@@ -8,9 +9,8 @@ import respx
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.config import load_settings
 from app.main import create_app
-from app.services import build_services
+from tests.auth_helpers import CSRF_HEADER, running, sign_in
 
 LLM_URL = "https://llm.example/v1/chat/completions"
 GOOD = {"first_name": "Anna", "last_name": "Meier", "company": "Acme", "email": "a@acme.org"}
@@ -28,16 +28,9 @@ def chat(content: dict[str, str] | str) -> httpx.Response:
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    settings = load_settings(
-        _env_file=None,
-        llm_base_url="https://llm.example/v1",
-        llm_model="tiny",
-        llm_api_key="k",
-        upload_max_bytes=100_000,
-        session_ttl_seconds=60,
-    )
-    with TestClient(create_app(build_services(settings))) as test_client:
+def client(tmp_path: Path) -> Iterator[TestClient]:
+    with running(tmp_path, upload_max_bytes=100_000, session_ttl_seconds=60) as (test_client, _):
+        sign_in(test_client)
         yield test_client
 
 
@@ -137,7 +130,7 @@ def test_unknown_session_reports_expired(client: TestClient) -> None:
 
 
 def test_missing_llm_configuration_is_a_clear_503_not_a_crash() -> None:
-    with TestClient(create_app()) as bare:  # no env: settings cannot be built
+    with TestClient(create_app(), headers=CSRF_HEADER) as bare:  # no env: settings cannot be built
         res = bare.post("/api/sessions", files={"file": ("c.jpg", jpeg(), "image/jpeg")})
     assert res.status_code == 503
     assert res.json()["code"] == "config_error" and "LLM_MODEL" in res.json()["message"]

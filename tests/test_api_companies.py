@@ -1,22 +1,19 @@
 from collections.abc import Iterator
+from pathlib import Path
 
 import httpx
 import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from app.config import load_settings
 from app.fundraisingbox.client import PERSONS_URL
-from app.main import create_app
-from app.services import build_services
+from tests.auth_helpers import running, sign_in
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    settings = load_settings(
-        _env_file=None, llm_model="m", llm_api_key="k", fundraisingbox_apitoken="tok"
-    )
-    with TestClient(create_app(build_services(settings))) as test_client:
+def client(tmp_path: Path) -> Iterator[TestClient]:
+    with running(tmp_path) as (test_client, _):
+        sign_in(test_client)
         yield test_client
 
 
@@ -70,8 +67,8 @@ def test_blank_query_returns_empty_without_calling_fundraisingbox(client: TestCl
         assert route.call_count == 0
 
 
-def test_missing_token_is_a_503_config_error() -> None:
-    settings = load_settings(_env_file=None, llm_model="m", llm_api_key="k")
-    with TestClient(create_app(build_services(settings))) as bare:
+def test_missing_token_is_a_503_config_error(tmp_path: Path) -> None:
+    with running(tmp_path, fundraisingbox_apitoken=None) as (bare, _):
+        sign_in(bare)
         res = bare.get("/api/companies", params={"q": "Acme"})
     assert res.status_code == 503 and res.json()["code"] == "fundraisingbox_not_configured"

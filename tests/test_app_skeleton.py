@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
@@ -8,7 +10,8 @@ from app.main import create_app
 
 
 def client_with_routes() -> TestClient:
-    app: FastAPI = create_app()
+    # API only: these tests add routes after creation, and the SPA catch-all must not exist yet
+    app: FastAPI = create_app(static_dir=Path("no-frontend-build"))
 
     class Body(BaseModel):
         name: str
@@ -32,10 +35,11 @@ def client_with_routes() -> TestClient:
     return TestClient(app, raise_server_exceptions=False)
 
 
-def test_health_ok() -> None:
+def test_health_route_exists_and_answers_json() -> None:
+    # Readiness details are covered in test_health.py; with nothing configured it is a clear 503.
     res = TestClient(create_app()).get("/api/health")
-    assert res.status_code == 200
-    assert res.json() == {"status": "ok"}
+    assert res.status_code == 503
+    assert res.json()["status"] == "unhealthy"
 
 
 def test_unknown_route_uses_uniform_error() -> None:
