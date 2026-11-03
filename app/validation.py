@@ -11,6 +11,10 @@ IDENTITY_MESSAGE = "Enter a last name or a company."
 EMAIL_MESSAGE = "This is not a valid email address."
 
 
+def is_valid_email(value: str) -> bool:
+    return bool(_EMAIL.match(value))
+
+
 def validate_contact(contact: Contact) -> dict[str, str]:
     """Return field name -> message for every problem, empty when the contact is valid."""
     errors: dict[str, str] = {}

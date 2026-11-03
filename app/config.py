@@ -1,6 +1,7 @@
 """Environment-based configuration. Secrets are SecretStr and never rendered."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -25,6 +26,18 @@ class Settings(BaseSettings):
     fundraisingbox_apitoken: SecretStr | None = None
 
     upload_max_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
+    # Persistent application data only (never card images or contacts); a mounted volume in Docker.
+    data_dir: Path = Path("/data")
+    # Accounts. The first administrator is created from these when no user exists yet.
+    initial_admin_email: str | None = None
+    initial_admin_password: SecretStr | None = None
+    auth_session_idle_hours: int = Field(default=12, gt=0)
+    auth_session_days: int = Field(default=14, gt=0)  # absolute lifetime of a sign-in
+    auth_invite_ttl_hours: int = Field(default=168, gt=0)  # invitation links: 7 days
+    auth_reset_ttl_minutes: int = Field(default=60, gt=0)  # password-reset links
+    auth_cookie_secure: bool = True  # set false only for plain-http local development
+    trusted_proxy: bool = False  # read the client address from X-Forwarded-For
+
     session_ttl_seconds: int = Field(default=1800, gt=0)
     session_max_count: int = Field(default=200, gt=0)
 

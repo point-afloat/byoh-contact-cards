@@ -2,21 +2,24 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from pydantic import BaseModel
 
 from app.api_errors import ApiError
 from app.contact import Contact
+from app.deps import require_user
 from app.extraction import ExtractionError, ExtractionResult
 from app.fundraisingbox.client import CompanyMatch
+from app.health import health_problems
 from app.images import validate_and_prepare
 from app.send import SendRequest, send_session
 from app.services import Services, get_services
 from app.sessions import Session
 from app.validation import validate_contact
 
-router = APIRouter(prefix="/api")
+# Only the health check is public here; everything else needs a signed-in user.
+public_router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", dependencies=[Depends(require_user)])
 ServicesDep = Annotated[Services, Depends(get_services)]
 
 
@@ -42,8 +45,17 @@ def session_out(session: Session) -> SessionOut:
     )
 
 
-@router.get("/health")
-def health() -> dict[str, str]:
+@public_router.get("/health")
+def health(request: Request, response: Response) -> dict[str, object]:
+    """Unauthenticated liveness and readiness check for the platform.
+
+    200 when the app is configured and the data directory is writable, otherwise 503 with the
+    names of the problems. Never calls external services and never includes secrets.
+    """
+    problems = health_problems(request.app)
+    if problems:
+        response.status_code = 503
+        return {"status": "unhealthy", "problems": problems}
     return {"status": "ok"}
 
 
