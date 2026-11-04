@@ -14,8 +14,9 @@ def client_ip(request: Request, trusted_proxy: bool) -> str:
     X-Forwarded-For entry, the one the proxy itself appended and the client cannot forge."""
     if trusted_proxy:
         forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return forwarded.split(",")[-1].strip()[:64] or "unknown"
+        last = forwarded.split(",")[-1].strip()
+        if last:
+            return last[:64]
     return request.client.host if request.client else "unknown"
 
 
