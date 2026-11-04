@@ -130,7 +130,10 @@ def test_unknown_session_reports_expired(client: TestClient) -> None:
 
 
 def test_missing_llm_configuration_is_a_clear_503_not_a_crash() -> None:
-    with TestClient(create_app(), headers=CSRF_HEADER) as bare:  # no env: settings cannot be built
+    # A cookie is sent so the request gets past the early refusal of cookie-less uploads and
+    # reaches the configuration check, which is what this test is about.
+    headers = {**CSRF_HEADER, "cookie": "session=made-up"}
+    with TestClient(create_app(), headers=headers) as bare:  # no env: settings cannot be built
         res = bare.post("/api/sessions", files={"file": ("c.jpg", jpeg(), "image/jpeg")})
     assert res.status_code == 503
     assert res.json()["code"] == "config_error" and "LLM_MODEL" in res.json()["message"]

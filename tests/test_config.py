@@ -10,6 +10,11 @@ def make(**kwargs: object) -> Settings:
     return load_settings(_env_file=None, **kwargs)
 
 
+def test_tests_never_read_a_dotenv_file() -> None:
+    """The autouse fixture in conftest switches the file off, so a developer's .env stays out."""
+    assert Settings.model_config["env_file"] is None
+
+
 def test_missing_model_raises_clear_error() -> None:
     with pytest.raises(ConfigError) as exc:
         make(llm_api_key="k")
