@@ -1,6 +1,6 @@
 """JSON API routes under /api."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from pydantic import BaseModel
@@ -31,6 +31,8 @@ class SessionOut(BaseModel):
     person_id: str | None = None
     record_type: str | None = None
     errors: dict[str, str] = {}
+    # Mock mode only: the data that would have been sent to FundraisingBox.
+    demo_payload: dict[str, Any] | None = None
 
 
 def session_out(session: Session) -> SessionOut:
@@ -42,6 +44,7 @@ def session_out(session: Session) -> SessionOut:
         person_id=session.person_id,
         record_type=session.record_type,
         errors=validate_contact(session.contact) if session.contact else {},
+        demo_payload=session.demo_payload,
     )
 
 
@@ -56,7 +59,20 @@ def health(request: Request, response: Response) -> dict[str, object]:
     if problems:
         response.status_code = 503
         return {"status": "unhealthy", "problems": problems}
-    return {"status": "ok"}
+    body: dict[str, object] = {"status": "ok"}
+    if get_services(request).settings.fundraisingbox_mode == "mock":
+        body["fundraisingbox"] = "mock"  # only in mock mode, so a live deployment says nothing
+    return body
+
+
+class AppInfoOut(BaseModel):
+    fundraisingbox_mode: str
+
+
+@router.get("/app-info")
+def app_info(services: ServicesDep) -> AppInfoOut:
+    """What the page needs to know about the deployment (for the mock-mode notice)."""
+    return AppInfoOut(fundraisingbox_mode=services.settings.fundraisingbox_mode)
 
 
 @router.post("/sessions", status_code=201)

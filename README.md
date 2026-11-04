@@ -27,7 +27,8 @@ on Sliplane, set them on the service. Secrets are never written to the logs or s
 | `LLM_API_KEY` | none | yes for hosted endpoints | API key for the endpoint. Not needed for a local server such as `http://localhost:1234/v1`. |
 | `LLM_TIMEOUT` | `60` | no | Seconds to wait for the model. |
 | `LLM_RESPONSE_FORMAT` | `json_schema` | no | `json_schema` asks for structured output and falls back to `json_object` by itself if the endpoint rejects it; `json_object` forces plain JSON mode. |
-| `FUNDRAISINGBOX_APITOKEN` | none | **yes** | FundraisingBox API token. Without it the health check reports unhealthy and sending is refused. |
+| `FUNDRAISINGBOX_APITOKEN` | none | **yes** (in `live` mode) | FundraisingBox API token. Without it the health check reports unhealthy and sending is refused. Not needed in `mock` mode. |
+| `FUNDRAISINGBOX_MODE` | `live` | no | `live` sends contacts to FundraisingBox. `mock` sends nothing: an in-memory stand-in answers, every page shows a notice and the done screen shows the data that would have been sent. For demos and testing only. |
 | `UPLOAD_MAX_BYTES` | `10485760` | no | Largest accepted card image (10 MiB). |
 | `SESSION_TTL_SECONDS` | `1800` | no | How long an idle review session is kept in memory. |
 | `SESSION_MAX_COUNT` | `200` | no | Most review sessions held at once. |

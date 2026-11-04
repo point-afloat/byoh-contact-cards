@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     llm_response_format: Literal["json_schema", "json_object"] = "json_schema"
 
     fundraisingbox_apitoken: SecretStr | None = None
+    # mock = an in-memory stand-in: nothing is ever sent to FundraisingBox (demos and testing).
+    fundraisingbox_mode: Literal["live", "mock"] = "live"
 
     upload_max_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
     # Persistent application data only (never card images or contacts); a mounted volume in Docker.
@@ -49,7 +51,12 @@ class Settings(BaseSettings):
 
 def _format_validation_error(exc: ValidationError) -> str:
     names = sorted({str(err["loc"][0]).upper() for err in exc.errors() if err["loc"]})
-    return "Invalid or missing configuration: " + ", ".join(names)
+    message = "Invalid or missing configuration: " + ", ".join(names)
+    for err in exc.errors():  # a fixed set of choices: say which ones are allowed
+        if err["type"] == "literal_error" and err["loc"]:
+            allowed = str(err.get("ctx", {}).get("expected", "")).replace("'", "")
+            message += f" ({str(err['loc'][0]).upper()} must be {allowed})"
+    return message
 
 
 def load_settings(**overrides: object) -> Settings:

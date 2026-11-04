@@ -97,6 +97,7 @@ def test_the_enumeration_covers_the_routes_that_must_be_protected(tmp_path: Path
         ("POST", "/api/sessions/{session_id}/send"),
         ("GET", "/api/sessions/{session_id}/image"),
         ("GET", "/api/companies"),
+        ("GET", "/api/app-info"),
         ("GET", "/api/auth/me"),
         ("POST", "/api/auth/logout"),
         ("POST", "/api/auth/change-password"),

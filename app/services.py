@@ -12,6 +12,8 @@ from app.config import Settings, get_settings
 from app.db import Database
 from app.extraction import ExtractionClient
 from app.fundraisingbox.client import FundraisingBoxClient
+from app.fundraisingbox.gateway import FundraisingBoxGateway
+from app.fundraisingbox.mock import MockFundraisingBox
 from app.sessions import SessionStore
 from app.timeutil import Clock, utcnow
 
@@ -25,7 +27,7 @@ class Services:
     clock: Clock
     store: SessionStore
     extraction: ExtractionClient
-    fundraisingbox: FundraisingBoxClient
+    fundraisingbox: FundraisingBoxGateway
 
 
 def build_services(settings: Settings, clock: Clock = utcnow) -> Services:
@@ -38,7 +40,11 @@ def build_services(settings: Settings, clock: Clock = utcnow) -> Services:
         clock=clock,
         store=SessionStore(settings.session_ttl_seconds, settings.session_max_count),
         extraction=ExtractionClient(settings),
-        fundraisingbox=FundraisingBoxClient(settings),
+        fundraisingbox=(
+            MockFundraisingBox()
+            if settings.fundraisingbox_mode == "mock"
+            else FundraisingBoxClient(settings)
+        ),
     )
 
 

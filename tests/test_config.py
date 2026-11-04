@@ -85,3 +85,17 @@ def test_unknown_response_format_is_a_clear_error() -> None:
     with pytest.raises(ConfigError) as exc:
         make(llm_model="m", llm_api_key="k", llm_response_format="yaml")
     assert "LLM_RESPONSE_FORMAT" in str(exc.value)
+
+
+def test_fundraisingbox_mode_defaults_to_live_and_accepts_mock() -> None:
+    assert make(llm_model="m", llm_api_key="k").fundraisingbox_mode == "live"
+    mock = make(llm_model="m", llm_api_key="k", fundraisingbox_mode="mock")
+    assert mock.fundraisingbox_mode == "mock"
+
+
+def test_an_unknown_fundraisingbox_mode_names_the_setting_and_the_allowed_values() -> None:
+    with pytest.raises(ConfigError) as exc:
+        make(llm_model="m", llm_api_key="k", fundraisingbox_mode="demo")
+    message = str(exc.value)
+    assert "FUNDRAISINGBOX_MODE" in message and "live" in message and "mock" in message
+    assert "demo" not in message  # the value itself is not echoed

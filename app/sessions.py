@@ -10,6 +10,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.api_errors import ApiError
 from app.contact import Contact
@@ -35,6 +36,10 @@ class Session:
     person_id: str | None = None
     record_type: str | None = None  # "person" or "company", once sent
     created_company: tuple[str, int] | None = None  # (name, id) created by an earlier attempt
+    created_company_payload: dict[str, Any] | None = field(default=None, repr=False)
+    # Mock mode only: what would have been sent to FundraisingBox. Memory only, ends with the
+    # session, never written to the database or the logs.
+    demo_payload: dict[str, Any] | None = field(default=None, repr=False)
     send_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
 
@@ -87,7 +92,11 @@ class SessionStore:
         return session
 
     def mark_sent(
-        self, session_id: str, person_id: str | None, record_type: str = "person"
+        self,
+        session_id: str,
+        person_id: str | None,
+        record_type: str = "person",
+        demo_payload: dict[str, Any] | None = None,
     ) -> Session:
         """Record a successful send and discard the card image and contact data."""
         session = self.get(session_id)
@@ -95,6 +104,7 @@ class SessionStore:
             session.sent = True
             session.person_id = person_id
             session.record_type = record_type
+            session.demo_payload = demo_payload or None  # empty (live) means nothing to keep
             session.image = None
             session.contact = None
         return session

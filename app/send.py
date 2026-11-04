@@ -62,7 +62,9 @@ def _send_company_only(
             "Choose to create the company, or add a last name.",
         )
     company_id = _create_company_once(services, session, contact.company)
-    return services.store.mark_sent(session.id, str(company_id), "company")
+    return services.store.mark_sent(
+        session.id, str(company_id), "company", demo_payload=session.created_company_payload
+    )
 
 
 def _send_person(
@@ -83,7 +85,9 @@ def _send_person(
     created = services.fundraisingbox.create_person(
         contact, company_id=company_id, note_company=note_company
     )
-    return services.store.mark_sent(session.id, str(created.id), "person")
+    return services.store.mark_sent(
+        session.id, str(created.id), "person", demo_payload=created.payload
+    )
 
 
 def _create_company_once(services: Services, session: Session, name: str) -> int:
@@ -91,4 +95,5 @@ def _create_company_once(services: Services, session: Session, name: str) -> int
         return session.created_company[1]
     created = services.fundraisingbox.create_company(name)
     session.created_company = (name, created.id)
+    session.created_company_payload = created.payload
     return created.id

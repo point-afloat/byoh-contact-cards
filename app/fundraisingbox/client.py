@@ -5,7 +5,7 @@ users never include the token; response bodies are never logged.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -53,6 +53,8 @@ class CompanyMatch:
 @dataclass(frozen=True)
 class CreatedRecord:
     id: int
+    # What was sent. Only the mock fills it (for the demo preview); live leaves it empty.
+    payload: dict[str, Any] = field(default_factory=dict)
 
 
 class FundraisingBoxClient:

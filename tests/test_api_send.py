@@ -288,3 +288,86 @@ def test_processing_and_sending_a_card_writes_nothing_to_the_data_dir(tmp_path: 
     # image or contact data inside it
     assert [p.name for p in tmp_path.iterdir()] == ["app.db"]
     assert b"anna@acme.org" not in (tmp_path / "app.db").read_bytes()
+
+
+# ---- mock mode: the payload preview ------------------------------------------------------------
+@pytest.fixture
+def mock_setup(tmp_path: Path) -> Iterator[tuple[TestClient, Services]]:
+    services = make_services(
+        tmp_path, llm_base_url="https://llm.example/v1", fundraisingbox_mode="mock"
+    )
+    with web_client(services) as test_client:
+        sign_in(test_client)
+        yield test_client, services
+
+
+def test_a_mock_send_returns_what_would_have_been_sent_and_calls_nobody(
+    mock_setup: tuple[TestClient, Services],
+) -> None:
+    client, _ = mock_setup
+    session_id = open_session(client)
+    with respx.mock(assert_all_called=False) as router:  # no routes: a request would fail
+        res = send(client, session_id, CARD)
+        assert router.calls.call_count == 0
+    assert res.status_code == 200
+    body = res.json()
+    assert body["sent"] is True and body["person_id"].startswith("9") and body["contact"] is None
+    payload = body["demo_payload"]
+    assert payload["last_name"] == "Meier" and payload["first_name"] == "Anna"
+    assert "Email: anna@acme.org" in payload["info"] and "Phone: +49 30 1234" in payload["info"]
+    assert payload["fb_custom_fields"] == [{"id": "16786", "name": "ContactPilot", "value": "Sync"}]
+    # the preview stays available while the session lives
+    assert client.get(f"/api/sessions/{session_id}").json()["demo_payload"] == payload
+
+
+def test_a_mock_company_only_send_returns_the_company_payload(
+    mock_setup: tuple[TestClient, Services],
+) -> None:
+    client, _ = mock_setup
+    session_id = open_session(client, {"company": "Neu & Gut e.V."})
+    res = send(client, session_id, {"company": "Neu & Gut e.V."}, {"mode": "create"})
+    assert res.status_code == 200 and res.json()["record_type"] == "company"
+    assert res.json()["demo_payload"] == {
+        "is_company": True,
+        "company_name": "Neu & Gut e.V.",
+        "last_name": "Neu & Gut e.V.",
+    }
+
+
+def test_a_mock_person_with_a_new_company_shows_the_linked_company_id(
+    mock_setup: tuple[TestClient, Services],
+) -> None:
+    client, _ = mock_setup
+    session_id = open_session(client)
+    res = send(client, session_id, CARD, {"mode": "create"})
+    payload = res.json()["demo_payload"]
+    assert isinstance(payload["company_id"], int) and payload["company_id"] >= 900001
+    assert "Company:" not in payload["info"]
+
+
+@respx.mock
+def test_a_live_send_returns_no_payload(client: TestClient) -> None:
+    respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 733}))
+    session_id = open_session(client)
+    res = send(client, session_id, CARD)
+    assert res.status_code == 200 and res.json()["demo_payload"] is None
+    assert client.get(f"/api/sessions/{session_id}").json()["demo_payload"] is None
+
+
+def test_the_preview_is_gone_with_the_session(mock_setup: tuple[TestClient, Services]) -> None:
+    client, services = mock_setup
+    session_id = open_session(client)
+    send(client, session_id, CARD)
+    services.store.discard(session_id)
+    gone = client.get(f"/api/sessions/{session_id}")
+    assert gone.status_code == 404 and "demo_payload" not in gone.text
+
+
+def test_a_refused_mock_send_shows_nothing_and_stays_open(
+    mock_setup: tuple[TestClient, Services],
+) -> None:
+    client, _ = mock_setup
+    session_id = open_session(client)
+    res = send(client, session_id, {**CARD, "notes": "x" * 2000})
+    assert res.status_code == 422 and res.json()["code"] == "info_too_long"
+    assert client.get(f"/api/sessions/{session_id}").json()["sent"] is False

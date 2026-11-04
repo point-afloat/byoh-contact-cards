@@ -43,7 +43,8 @@ def database_problem(db: Database) -> str | None:
 
 def settings_problems(settings: Settings) -> list[str]:
     problems: list[str] = []
-    if settings.fundraisingbox_apitoken is None:
+    # The mock needs no token: nothing is ever sent.
+    if settings.fundraisingbox_mode == "live" and settings.fundraisingbox_apitoken is None:
         problems.append("FUNDRAISINGBOX_APITOKEN is not set")
     problem = data_dir_problem(settings.data_dir)
     if problem:
@@ -73,6 +74,10 @@ def prepare_on_startup(app: FastAPI) -> list[str]:
         services = ensure_services(app)
     except ConfigError as exc:
         return [str(exc)]
+    if services.settings.fundraisingbox_mode == "mock":
+        logger.warning(
+            "FUNDRAISINGBOX_MODE=mock: FundraisingBox is MOCKED, nothing is sent to FundraisingBox"
+        )
     if not data_dir_problem(services.settings.data_dir):
         try:
             services.db.migrate()

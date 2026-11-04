@@ -154,3 +154,15 @@ def test_saving_a_draft_reports_problems_without_blocking(client: TestClient) ->
 def test_valid_session_has_no_errors(client: TestClient) -> None:
     respx.post(LLM_URL).mock(return_value=chat(GOOD))
     assert upload(client, jpeg()).json()["errors"] == {}
+
+
+# ---- app info (mock-mode notice) --------------------------------------------------------------
+def test_app_info_reports_the_fundraisingbox_mode(tmp_path: Path) -> None:
+    with running(tmp_path) as (live, _):
+        assert live.get("/api/app-info").status_code == 401  # signed out
+        sign_in(live)
+        assert live.get("/api/app-info").json() == {"fundraisingbox_mode": "live"}
+    (tmp_path / "mock").mkdir()
+    with running(tmp_path / "mock", fundraisingbox_mode="mock") as (mock, _):
+        sign_in(mock)
+        assert mock.get("/api/app-info").json() == {"fundraisingbox_mode": "mock"}

@@ -163,3 +163,60 @@ def test_without_startup_the_uninitialised_database_is_reported(tmp_path: Path) 
     assert res.status_code == 503
     assert any("not been initialised" in p for p in res.json()["problems"])
     assert not (tmp_path / "app.db").exists()  # the check did not create the file
+
+
+# ---- mock mode --------------------------------------------------------------------------------
+def mock_client(data_dir: Path, **overrides: object) -> TestClient:
+    settings = load_settings(
+        _env_file=None,
+        llm_model="tiny",
+        llm_api_key=LLM_KEY,
+        fundraisingbox_mode="mock",
+        initial_admin_email="admin@example.org",
+        initial_admin_password="a very long admin password",
+        data_dir=data_dir,
+        **overrides,
+    )
+    return TestClient(create_app(build_services(settings)))
+
+
+def test_mock_mode_is_healthy_without_a_token_and_says_so(tmp_path: Path) -> None:
+    with mock_client(tmp_path) as client:
+        res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok", "fundraisingbox": "mock"}
+
+
+def test_live_mode_still_needs_the_token_and_never_mentions_mock(tmp_path: Path) -> None:
+    settings = load_settings(
+        _env_file=None,
+        llm_model="m",
+        llm_api_key=LLM_KEY,
+        fundraisingbox_mode="live",
+        data_dir=tmp_path,
+        initial_admin_email="admin@example.org",
+        initial_admin_password="a very long admin password",
+    )
+    with TestClient(create_app(build_services(settings))) as client:
+        res = client.get("/api/health")
+    assert res.status_code == 503 and "mock" not in res.text.lower()
+
+
+def test_live_health_has_no_mock_marker(healthy: TestClient) -> None:
+    assert "fundraisingbox" not in healthy.get("/api/health").json()
+
+
+def test_startup_logs_a_warning_in_mock_mode_only(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    (tmp_path / "mock").mkdir()
+    (tmp_path / "live").mkdir()
+    with caplog.at_level(logging.WARNING):
+        with mock_client(tmp_path / "mock"):
+            pass
+    assert any("MOCKED" in r.message and r.levelno == logging.WARNING for r in caplog.records)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        with client_for(tmp_path / "live"):
+            pass
+    assert not any("MOCKED" in r.message for r in caplog.records)
