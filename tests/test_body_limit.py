@@ -15,6 +15,7 @@ from starlette import formparsers
 from app.body_limit import ENVELOPE_ALLOWANCE_BYTES, JSON_LIMIT_BYTES, BodyLimit
 from app.main import create_app, upload_limit_for
 from app.models import LoginAttempt
+from app.security_headers import SecurityHeaders
 from tests.auth_helpers import NO_FRONTEND_BUILD, SESSION_COOKIE, make_services, running
 
 UPLOAD_MAX = 1000
@@ -279,9 +280,11 @@ def multipart_parses(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
     return calls
 
 
-def test_the_size_limit_is_the_outermost_layer_of_the_app():
+def test_the_size_limit_comes_before_everything_but_the_header_layer():
     app = create_app(static_dir=NO_FRONTEND_BUILD)
-    assert app.user_middleware[0].cls is BodyLimit
+    layers = [layer.cls for layer in app.user_middleware]
+    # The header layer is outermost so even the size limit's refusals carry the headers.
+    assert layers[:2] == [SecurityHeaders, BodyLimit]
 
 
 def test_an_anonymous_oversized_upload_is_refused_and_never_parsed(
