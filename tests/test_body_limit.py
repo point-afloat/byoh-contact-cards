@@ -15,7 +15,7 @@ from starlette import formparsers
 from app.body_limit import ENVELOPE_ALLOWANCE_BYTES, JSON_LIMIT_BYTES, BodyLimit
 from app.main import create_app, upload_limit_for
 from app.models import LoginAttempt
-from tests.auth_helpers import NO_FRONTEND_BUILD, make_services, running
+from tests.auth_helpers import NO_FRONTEND_BUILD, SESSION_COOKIE, make_services, running
 
 UPLOAD_MAX = 1000
 UPLOAD_LIMIT = UPLOAD_MAX + ENVELOPE_ALLOWANCE_BYTES
@@ -312,7 +312,10 @@ def test_a_streamed_upload_over_the_limit_is_cut_off_with_413(tmp_path: Path):
         response = client.post(
             "/api/sessions",
             content=streamed_upload(),
-            headers={**STREAMED, "cookie": "session=made-up"},  # a cookie gets it past 401
+            headers={
+                **STREAMED,
+                "cookie": f"{SESSION_COOKIE}=made-up",
+            },  # a cookie gets it past 401
         )
         assert response.status_code == 413
         assert response.json()["code"] == "file_too_large"
@@ -469,7 +472,7 @@ def test_a_made_up_cookie_is_checked_in_the_usual_way(
         response = client.post(
             "/api/sessions",
             files={"file": ("a.jpg", b"0" * 10, "image/jpeg")},
-            headers={"cookie": "session=made-up"},
+            headers={"cookie": f"{SESSION_COOKIE}=made-up"},
         )
         assert response.status_code == 401  # refused by the sign-in check, after parsing
         assert multipart_parses["n"] == 1

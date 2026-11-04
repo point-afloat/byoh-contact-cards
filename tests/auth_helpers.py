@@ -19,6 +19,7 @@ ADMIN_EMAIL = "admin@example.org"
 ADMIN_PASSWORD = "a very long admin password"
 NO_FRONTEND_BUILD = Path("no-frontend-build")
 CSRF_HEADER = {"X-Requested-With": "tests"}
+SESSION_COOKIE = "__Host-session"  # the sign-in cookie over https, which the test client uses
 
 SETTINGS: dict[str, Any] = {
     "llm_base_url": "https://llm.example/v1",

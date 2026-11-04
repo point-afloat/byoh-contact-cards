@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.main import create_app
-from tests.auth_helpers import CSRF_HEADER, running, sign_in
+from tests.auth_helpers import CSRF_HEADER, SESSION_COOKIE, running, sign_in
 
 LLM_URL = "https://llm.example/v1/chat/completions"
 GOOD = {"first_name": "Anna", "last_name": "Meier", "company": "Acme", "email": "a@acme.org"}
@@ -132,7 +132,7 @@ def test_unknown_session_reports_expired(client: TestClient) -> None:
 def test_missing_llm_configuration_is_a_clear_503_not_a_crash() -> None:
     # A cookie is sent so the request gets past the early refusal of cookie-less uploads and
     # reaches the configuration check, which is what this test is about.
-    headers = {**CSRF_HEADER, "cookie": "session=made-up"}
+    headers = {**CSRF_HEADER, "cookie": f"{SESSION_COOKIE}=made-up"}
     with TestClient(create_app(), headers=headers) as bare:  # no env: settings cannot be built
         res = bare.post("/api/sessions", files={"file": ("c.jpg", jpeg(), "image/jpeg")})
     assert res.status_code == 503

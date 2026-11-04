@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
 
-from app.auth import COOKIE_NAME
+from app.auth import LEGACY_COOKIE_NAME, session_cookie_name
 from app.deps import ServicesDep, UserDep, client_ip, require_user
 from app.services import Services
 
@@ -45,9 +45,13 @@ class ChangePasswordIn(BaseModel):
     new_password: str
 
 
+def session_cookie_for(services: Services) -> str:
+    return session_cookie_name(services.settings.auth_cookie_secure)
+
+
 def set_session_cookie(response: Response, services: Services, raw: str) -> None:
     response.set_cookie(
-        COOKIE_NAME,
+        session_cookie_for(services),
         raw,
         max_age=services.settings.auth_session_days * 86400,
         httponly=True,
@@ -55,11 +59,16 @@ def set_session_cookie(response: Response, services: Services, raw: str) -> None
         samesite="lax",
         path="/",
     )
+    if session_cookie_for(services) != LEGACY_COOKIE_NAME:
+        # A browser may still hold the cookie an earlier version set under the old name.
+        response.delete_cookie(
+            LEGACY_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="lax"
+        )
 
 
 def clear_session_cookie(response: Response, services: Services) -> None:
     response.delete_cookie(
-        COOKIE_NAME,
+        session_cookie_for(services),
         path="/",
         httponly=True,
         secure=services.settings.auth_cookie_secure,
@@ -91,7 +100,7 @@ def accept_invite(body: AcceptInviteIn, response: Response, services: ServicesDe
 
 @protected.post("/logout")
 def logout(request: Request, response: Response, services: ServicesDep) -> dict[str, str]:
-    services.auth.end_session(request.cookies.get(COOKIE_NAME))
+    services.auth.end_session(request.cookies.get(session_cookie_for(services)))
     clear_session_cookie(response, services)
     return {"status": "ok"}
 
@@ -110,6 +119,7 @@ def change_password(
         body.current_password,
         body.new_password,
         client_ip(request, services.settings.trusted_proxy),
-        keep_session_raw=request.cookies.get(COOKIE_NAME),  # other sessions end, this one stays
+        # other sessions end, this one stays
+        keep_session_raw=request.cookies.get(session_cookie_for(services)),
     )
     return {"status": "ok"}

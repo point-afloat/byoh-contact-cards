@@ -29,7 +29,9 @@ from app.validation import is_valid_email
 
 logger = logging.getLogger(__name__)
 
-COOKIE_NAME = "session"
+PLAIN_COOKIE_NAME = "session"  # local development over plain http
+HOST_COOKIE_NAME = "__Host-session"  # browsers accept it only from this exact host over https
+LEGACY_COOKIE_NAME = "session"  # what versions before the rename set; no longer read
 FAILURE_WINDOW = timedelta(minutes=10)
 # Sign-in is refused, even with the right password, when any of these is reached in the window.
 MAX_FAILURES_PER_EMAIL_AND_IP = 5  # one person guessing at one account from one place
@@ -37,6 +39,11 @@ MAX_FAILURES_PER_EMAIL = 30  # guessing at one account from many places (a backs
 MAX_FAILURES_PER_IP = 20  # one place trying many accounts
 LAST_SEEN_REFRESH = timedelta(minutes=1)  # do not write on every request
 PURGE_INTERVAL = timedelta(minutes=1)  # old rows are cleaned up at most this often
+
+
+def session_cookie_name(secure: bool) -> str:
+    """The `__Host-` prefix needs the Secure attribute, so it is used only when the cookie is."""
+    return HOST_COOKIE_NAME if secure else PLAIN_COOKIE_NAME
 
 
 def normalize_email(email: str) -> str:

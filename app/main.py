@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app import admin_api, auth_api
 from app.api import public_router, router
 from app.api_errors import error_response, register_error_handlers
-from app.auth import COOKIE_NAME
+from app.auth import session_cookie_name
 from app.body_limit import BodyLimit
 from app.config import Settings, get_settings
 from app.errors import ConfigError
@@ -34,6 +34,17 @@ def upload_limit_for(app: FastAPI) -> int:
         return get_settings().upload_max_bytes
     except ConfigError:
         return int(Settings.model_fields["upload_max_bytes"].default)
+
+
+def session_cookie_for(app: FastAPI) -> str:
+    """The session cookie's name, looked up per request like the upload limit (same fallback)."""
+    services: Services | None = app.state.services
+    if services is not None:
+        return session_cookie_name(services.settings.auth_cookie_secure)
+    try:
+        return session_cookie_name(get_settings().auth_cookie_secure)
+    except ConfigError:
+        return session_cookie_name(bool(Settings.model_fields["auth_cookie_secure"].default))
 
 
 @asynccontextmanager
@@ -73,7 +84,7 @@ def create_app(services: Services | None = None, static_dir: Path | None = None)
     app.add_middleware(
         BodyLimit,
         upload_max_bytes=lambda: upload_limit_for(app),
-        session_cookie_name=lambda: COOKIE_NAME,
+        session_cookie_name=lambda: session_cookie_for(app),
     )
 
     @app.exception_handler(FundraisingBoxError)

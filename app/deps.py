@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from app.api_errors import ApiError
-from app.auth import COOKIE_NAME, AuthUser
+from app.auth import AuthUser, session_cookie_name
 from app.services import Services, get_services
 
 
@@ -21,7 +21,9 @@ def client_ip(request: Request, trusted_proxy: bool) -> str:
 
 def require_user(request: Request) -> AuthUser:
     """The signed-in user, or a 401 that carries no data."""
-    user = get_services(request).auth.authenticate(request.cookies.get(COOKIE_NAME))
+    services = get_services(request)
+    raw = request.cookies.get(session_cookie_name(services.settings.auth_cookie_secure))
+    user = services.auth.authenticate(raw)
     if user is None:
         raise ApiError(401, "not_authenticated", "Please sign in.")
     return user

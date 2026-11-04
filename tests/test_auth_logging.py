@@ -13,6 +13,7 @@ import pytest
 from tests.auth_helpers import (
     ADMIN_EMAIL,
     ADMIN_PASSWORD,
+    SESSION_COOKIE,
     FakeClock,
     add_user,
     running,
@@ -49,7 +50,7 @@ def test_no_secret_reaches_the_logs_in_any_auth_flow(
 
         # sign in, use the session, sign out
         sign_in(client)
-        secrets.add(str(client.cookies.get("session")))
+        secrets.add(str(client.cookies.get(SESSION_COOKIE)))
         client.get("/api/auth/me")
         client.post("/api/auth/logout")
 
@@ -66,17 +67,17 @@ def test_no_secret_reaches_the_logs_in_any_auth_flow(
 
         # a made-up session cookie
         client.cookies.clear()
-        client.cookies.set("session", BOGUS_COOKIE)
+        client.cookies.set(SESSION_COOKIE, BOGUS_COOKIE)
         client.get("/api/auth/me")
         client.cookies.clear()
 
         # a real session: expires, then signs in again and changes the password
         sign_in(client)
-        secrets.add(str(client.cookies.get("session")))
+        secrets.add(str(client.cookies.get(SESSION_COOKIE)))
         clock.advance(hours=13)  # idle expiry
         client.get("/api/auth/me")
         sign_in(client)
-        secrets.add(str(client.cookies.get("session")))
+        secrets.add(str(client.cookies.get(SESSION_COOKIE)))
         client.post(
             "/api/auth/change-password",
             json={"current_password": WRONG_1, "new_password": NEW_PASSWORD},  # wrong current
@@ -108,7 +109,7 @@ def test_no_secret_reaches_the_logs_in_any_auth_flow(
         visitor.post(
             "/api/auth/accept-invite", json={"token": joiner["token"], "password": JOINER_PASSWORD}
         )
-        secrets.add(str(visitor.cookies.get("session")))
+        secrets.add(str(visitor.cookies.get(SESSION_COOKIE)))
         visitor.post(
             "/api/auth/accept-invite", json={"token": joiner["token"], "password": JOINER_PASSWORD}
         )
@@ -124,7 +125,7 @@ def test_no_secret_reaches_the_logs_in_any_auth_flow(
         resetter.post(
             "/api/auth/accept-invite", json={"token": reset["token"], "password": RESET_PASSWORD}
         )
-        secrets.add(str(resetter.cookies.get("session")))
+        secrets.add(str(resetter.cookies.get(SESSION_COOKIE)))
 
     text = caplog.text
     assert "Created the first administrator account" in text  # the capture really worked

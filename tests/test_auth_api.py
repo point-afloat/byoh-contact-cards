@@ -10,6 +10,7 @@ from app.models import AuthSession, LoginAttempt, User
 from tests.auth_helpers import (
     ADMIN_EMAIL,
     ADMIN_PASSWORD,
+    SESSION_COOKIE,
     FakeClock,
     add_user,
     running,
@@ -41,7 +42,8 @@ def test_valid_credentials_sign_in_and_set_a_hardened_cookie(tmp_path: Path) -> 
 def test_the_session_cookie_is_never_stored_in_plain_text(tmp_path: Path) -> None:
     with running(tmp_path) as (client, services):
         raw = re.search(
-            r"session=([^;]+)", login(client, ADMIN_EMAIL, ADMIN_PASSWORD).headers["set-cookie"]
+            r"__Host-session=([^;]+)",
+            login(client, ADMIN_EMAIL, ADMIN_PASSWORD).headers["set-cookie"],
         )
         assert raw is not None
         services.db.engine.dispose()
@@ -97,7 +99,7 @@ def test_logout_ends_the_session_and_clears_the_cookie(tmp_path: Path) -> None:
         res = client.post("/api/auth/logout")
         assert res.status_code == 200
         assert (
-            'session=""' in res.headers["set-cookie"]
+            '__Host-session=""' in res.headers["set-cookie"]
             or "max-age=0" in res.headers["set-cookie"].lower()
         )
         with services.db.session() as db:
@@ -367,3 +369,51 @@ def test_input_exactly_at_the_limits_is_still_checked_normally(tmp_path: Path) -
     with running(tmp_path) as (client, services):
         assert login(client, long_email, "p" * 1024).status_code == 401
         assert attempt_rows(services) == 1
+
+
+# ---- the host-locked session cookie -----------------------------------------------------------
+def cookie_headers(res) -> list[str]:  # type: ignore[no-untyped-def]
+    return [h.lower() for h in res.headers.get_list("set-cookie")]
+
+
+def test_over_https_the_cookie_is_host_locked(tmp_path: Path) -> None:
+    with running(tmp_path) as (client, _):
+        res = login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+        ours = [h for h in cookie_headers(res) if h.startswith("__host-session=")]
+        assert len(ours) == 1
+        cookie = ours[0]
+        for attribute in ("secure", "httponly", "samesite=lax", "path=/"):
+            assert attribute in cookie
+        assert "domain" not in cookie  # the __Host- prefix forbids it
+        assert client.cookies.get(SESSION_COOKIE)
+
+
+def test_in_local_development_the_cookie_has_a_plain_name_and_sign_in_works(
+    tmp_path: Path,
+) -> None:
+    with running(tmp_path, auth_cookie_secure=False) as (client, services):
+        client.base_url = "http://testserver"  # plain http, as in local development
+        res = login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+        assert res.status_code == 200
+        names = [h.split("=")[0] for h in cookie_headers(res)]
+        assert names == ["session"]
+        assert "secure" not in cookie_headers(res)[0]
+        assert client.get("/api/auth/me").json()["email"] == ADMIN_EMAIL
+        assert client.post("/api/auth/logout").status_code == 200
+        assert client.get("/api/auth/me").status_code == 401
+
+
+def test_a_request_with_only_the_old_cookie_is_signed_out(tmp_path: Path) -> None:
+    with running(tmp_path) as (client, services):
+        sign_in(client)
+        raw = client.cookies.get(SESSION_COOKIE)
+        client.cookies.clear()
+        client.cookies.set("session", raw)  # a valid session value under the old name
+        assert client.get("/api/auth/me").status_code == 401
+
+
+def test_signing_in_removes_the_old_cookie(tmp_path: Path) -> None:
+    with running(tmp_path) as (client, _):
+        res = login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+        old = [h for h in cookie_headers(res) if h.startswith("session=")]
+        assert len(old) == 1 and ("max-age=0" in old[0] or "1970" in old[0])
