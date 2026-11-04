@@ -278,6 +278,16 @@ def test_one_address_guessing_many_accounts_is_blocked(tmp_path: Path) -> None:
         assert login(client, ADMIN_EMAIL, ADMIN_PASSWORD, **elsewhere).status_code == 200
 
 
+def test_a_stranger_guessing_cannot_lock_the_real_user_out(tmp_path: Path) -> None:
+    with running(tmp_path, trusted_proxy=True) as (client, _):
+        stranger = {"X-Forwarded-For": "203.0.113.9"}
+        for _ in range(5):
+            assert login(client, ADMIN_EMAIL, "wrong password here", **stranger).status_code == 401
+        assert login(client, ADMIN_EMAIL, ADMIN_PASSWORD, **stranger).status_code == 429
+        owner = {"X-Forwarded-For": "198.51.100.7"}  # the real user, from somewhere else
+        assert login(client, ADMIN_EMAIL, ADMIN_PASSWORD, **owner).status_code == 200
+
+
 def test_forwarded_addresses_are_ignored_unless_a_proxy_is_trusted(tmp_path: Path) -> None:
     with running(tmp_path) as (client, _):  # trusted_proxy is off by default
         for i in range(20):

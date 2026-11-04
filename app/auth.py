@@ -7,7 +7,7 @@ nothing secret is logged.
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session as DbSession
@@ -31,8 +31,10 @@ logger = logging.getLogger(__name__)
 
 COOKIE_NAME = "session"
 FAILURE_WINDOW = timedelta(minutes=10)
-MAX_FAILURES_PER_EMAIL = 5
-MAX_FAILURES_PER_IP = 20
+# Sign-in is refused, even with the right password, when any of these is reached in the window.
+MAX_FAILURES_PER_EMAIL_AND_IP = 5  # one person guessing at one account from one place
+MAX_FAILURES_PER_EMAIL = 30  # guessing at one account from many places (a backstop)
+MAX_FAILURES_PER_IP = 20  # one place trying many accounts
 LAST_SEEN_REFRESH = timedelta(minutes=1)  # do not write on every request
 
 
@@ -129,19 +131,27 @@ class AuthService:
         db.execute(statement)
 
     # ---- throttling ----------------------------------------------------------------------
+    @staticmethod
+    def _failures(
+        db: DbSession, since: datetime, *, email: str | None = None, ip: str | None = None
+    ) -> int:
+        """Failed attempts since `since`, for an email, an address, or both together."""
+        query = (
+            select(func.count()).select_from(LoginAttempt).where(LoginAttempt.attempted_at > since)
+        )
+        if email is not None:
+            query = query.where(LoginAttempt.email == email)
+        if ip is not None:
+            query = query.where(LoginAttempt.ip == ip)
+        return db.scalar(query) or 0
+
     def _is_blocked(self, db: DbSession, email: str, ip: str) -> bool:
         since = self._clock() - FAILURE_WINDOW
-        by_email = db.scalar(
-            select(func.count())
-            .select_from(LoginAttempt)
-            .where(LoginAttempt.email == email, LoginAttempt.attempted_at > since)
+        return (
+            self._failures(db, since, email=email, ip=ip) >= MAX_FAILURES_PER_EMAIL_AND_IP
+            or self._failures(db, since, email=email) >= MAX_FAILURES_PER_EMAIL
+            or self._failures(db, since, ip=ip) >= MAX_FAILURES_PER_IP
         )
-        by_ip = db.scalar(
-            select(func.count())
-            .select_from(LoginAttempt)
-            .where(LoginAttempt.ip == ip, LoginAttempt.attempted_at > since)
-        )
-        return (by_email or 0) >= MAX_FAILURES_PER_EMAIL or (by_ip or 0) >= MAX_FAILURES_PER_IP
 
     def _record_failure(self, db: DbSession, email: str, ip: str) -> None:
         db.add(LoginAttempt(email=email, ip=ip, attempted_at=self._clock()))
@@ -161,7 +171,11 @@ class AuthService:
                 if needs_rehash(stored):
                     user.password_hash = hash_password(password)
                 user.last_sign_in_at = self._clock()
-                db.execute(delete(LoginAttempt).where(LoginAttempt.email == email))
+                # Only this person's failures from this place: failures from other addresses
+                # (someone else guessing) must keep counting.
+                db.execute(
+                    delete(LoginAttempt).where(LoginAttempt.email == email, LoginAttempt.ip == ip)
+                )
                 raw = self.create_session(db, user.id)
                 return AuthUser(user.id, user.email, user.role), raw
             self._record_failure(db, email, ip)
