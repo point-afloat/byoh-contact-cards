@@ -15,6 +15,7 @@ from app.config import Settings, get_settings
 from app.errors import ConfigError
 from app.fundraisingbox.client import FundraisingBoxError
 from app.health import prepare_on_startup
+from app.security_headers import SecurityHeaders
 from app.services import Services, install_services
 from app.spa import default_static_dir, mount_spa
 
@@ -36,15 +37,20 @@ def upload_limit_for(app: FastAPI) -> int:
         return int(Settings.model_fields["upload_max_bytes"].default)
 
 
-def session_cookie_for(app: FastAPI) -> str:
-    """The session cookie's name, looked up per request like the upload limit (same fallback)."""
+def cookie_is_secure(app: FastAPI) -> bool:
+    """AUTH_COOKIE_SECURE, looked up per request like the other lazy settings (same fallback)."""
     services: Services | None = app.state.services
     if services is not None:
-        return session_cookie_name(services.settings.auth_cookie_secure)
+        return services.settings.auth_cookie_secure
     try:
-        return session_cookie_name(get_settings().auth_cookie_secure)
+        return get_settings().auth_cookie_secure
     except ConfigError:
-        return session_cookie_name(bool(Settings.model_fields["auth_cookie_secure"].default))
+        return bool(Settings.model_fields["auth_cookie_secure"].default)
+
+
+def session_cookie_for(app: FastAPI) -> str:
+    """The session cookie's name, looked up per request like the upload limit (same fallback)."""
+    return session_cookie_name(cookie_is_secure(app))
 
 
 @asynccontextmanager
@@ -86,6 +92,10 @@ def create_app(services: Services | None = None, static_dir: Path | None = None)
         upload_max_bytes=lambda: upload_limit_for(app),
         session_cookie_name=lambda: session_cookie_for(app),
     )
+
+    # Added last, so it is the very outermost layer: refusals sent by the size limit carry the
+    # security headers too.
+    app.add_middleware(SecurityHeaders, hsts=lambda: cookie_is_secure(app))
 
     @app.exception_handler(FundraisingBoxError)
     async def _fundraisingbox_error(_: Request, exc: FundraisingBoxError) -> JSONResponse:
