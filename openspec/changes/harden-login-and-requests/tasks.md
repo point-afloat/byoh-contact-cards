@@ -3,8 +3,9 @@
 ## 1. Request size limits
 
 - [x] 1.1 Write the pure ASGI size-limit middleware (declared length, byte counting for streamed bodies, 400 for a bad length, 413 with the usual error body). Verify with tests for each scenario in `request-hardening`: declared too large, streamed too large, 64 KB JSON, upload exactly at the limit, malformed length. (files: app/body_limit.py, tests/test_body_limit.py)
-- [ ] 1.2 Wire it outermost in `create_app`, reading the upload limit lazily with the 10 MiB fallback. Verify the anonymous 5 MB multipart request with `X-Requested-With` now gets 413 and the multipart parser is never called, and that the existing upload tests still pass. (files: app/main.py, tests/test_body_limit.py)
-- [ ] 1.3 Checkpoint: owner reviews and commits this group (tasks 1.1 to 1.2)
+- [x] 1.2 Wire it outermost in `create_app`, reading the upload limit lazily with the 10 MiB fallback. Verify that an anonymous multipart request larger than the configured upload limit (sent with `X-Requested-With`) gets 413 and the multipart parser is never called, and that the existing upload tests still pass. Also make the test suite ignore a developer's `.env` file (done before 1.2 because it hid real results): `tests/conftest.py` switches the file off for every test, and the whole suite passes from the project root with a `.env` present. (files: app/main.py, tests/test_body_limit.py, tests/conftest.py, tests/test_config.py)
+- [x] 1.3 Refuse card uploads that carry no session cookie before reading their body, after the size check and with the same 401 body as the usual sign-in check. Verify with tests that a cookie-less upload within the limit gets 401 with the multipart parser never called, that an oversized one still gets 413, that a made-up cookie is checked in the usual way, that other routes and methods are not affected, and that the early 401 body equals the usual one. (files: app/body_limit.py, app/main.py, tests/test_body_limit.py, tests/test_api_sessions.py)
+- [ ] 1.4 Checkpoint: owner reviews and commits this group (tasks 1.1 to 1.3)
 
 ## 2. Sign-in protection
 

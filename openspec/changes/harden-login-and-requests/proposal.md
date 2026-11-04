@@ -7,6 +7,7 @@ A security review of the running app found one high-severity gap and several med
 ## What Changes
 
 - Limit the size of every request body, and refuse oversized ones before they are read or parsed, with or without a login.
+- Refuse a card upload that carries no session cookie at all before its body is read, with the same 401 as any other unauthenticated request. A request with a made-up cookie is still parsed, bounded by the size limit.
 - Redo sign-in throttling so that one person's failed attempts no longer block another person's sign-in. Failures are counted per email and client address together, with a looser per-email limit as a backstop against guessing from many addresses.
 - State and test how the client address is taken from the proxy, so a forged `X-Forwarded-For` header cannot be used to avoid throttling.
 - Cap the length of the sign-in fields, and remove old failed-attempt rows and expired sessions, so neither can be used to grow the database.
@@ -22,7 +23,7 @@ Out of scope: a second factor (TOTP or passkeys), a breached-password check, an 
 
 ### New Capabilities
 
-- `request-hardening`: limits and protections that apply to every request, whoever sends it: body size limits, security and cache headers, a per-user limit on card uploads, and the startup warning for an insecure cookie setting.
+- `request-hardening`: limits and protections that apply to every request, whoever sends it: body size limits, early refusal of cookie-less card uploads, security and cache headers, a per-user limit on card uploads, and the startup warning for an insecure cookie setting.
 - `login-protection`: how sign-in is defended against guessing and abuse: throttling keys and limits, trusted client address, field length caps, clean-up of old records, and the cookie name.
 
 ### Modified Capabilities

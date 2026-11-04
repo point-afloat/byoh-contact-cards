@@ -9,12 +9,31 @@ from fastapi.responses import JSONResponse
 from app import admin_api, auth_api
 from app.api import public_router, router
 from app.api_errors import error_response, register_error_handlers
+from app.auth import COOKIE_NAME
+from app.body_limit import BodyLimit
+from app.config import Settings, get_settings
+from app.errors import ConfigError
 from app.fundraisingbox.client import FundraisingBoxError
 from app.health import prepare_on_startup
 from app.services import Services, install_services
 from app.spa import default_static_dir, mount_spa
 
 logger = logging.getLogger(__name__)
+
+
+def upload_limit_for(app: FastAPI) -> int:
+    """The configured upload limit, looked up per request because settings load lazily.
+
+    With invalid configuration the default applies, so the size limit still protects the app
+    and the usual clear 503 about the configuration is what the caller eventually sees.
+    """
+    services: Services | None = app.state.services
+    if services is not None:
+        return services.settings.upload_max_bytes
+    try:
+        return get_settings().upload_max_bytes
+    except ConfigError:
+        return int(Settings.model_fields["upload_max_bytes"].default)
 
 
 @asynccontextmanager
@@ -48,6 +67,14 @@ def create_app(services: Services | None = None, static_dir: Path | None = None)
             if not json_body and "x-requested-with" not in request.headers:
                 return error_response(403, "csrf_blocked", "The request was blocked for safety.")
         return await call_next(request)
+
+    # Added after the CSRF guard so it is the outermost layer: an oversized body is refused
+    # before the guard, the router, or FastAPI's body parsing sees it.
+    app.add_middleware(
+        BodyLimit,
+        upload_max_bytes=lambda: upload_limit_for(app),
+        session_cookie_name=lambda: COOKIE_NAME,
+    )
 
     @app.exception_handler(FundraisingBoxError)
     async def _fundraisingbox_error(_: Request, exc: FundraisingBoxError) -> JSONResponse:

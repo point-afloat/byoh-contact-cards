@@ -10,8 +10,8 @@ Defines protections that apply to every request no matter who sends it: how larg
 The system SHALL refuse a request body that is larger than the limit for its route, without reading or parsing it further, whether or not the sender is signed in. The limit for card uploads SHALL be the configured maximum upload size plus a small allowance for the multipart envelope. The limit for every other route SHALL be 64 KB. A refused request SHALL receive a 413 response with the usual `{code, message}` body.
 
 #### Scenario: Anonymous oversized upload
-- **WHEN** a request without a sign-in cookie posts a multipart body larger than the upload limit to the card upload route
-- **THEN** the response is 413 and the body is never parsed
+- **WHEN** a request without a sign-in cookie declares a multipart body larger than the upload limit for the card upload route
+- **THEN** the response is 413 and the body is never read or parsed
 
 #### Scenario: Declared size is too large
 - **WHEN** a request declares a content length above the limit for its route
@@ -32,6 +32,29 @@ The system SHALL refuse a request body that is larger than the limit for its rou
 #### Scenario: Invalid content length
 - **WHEN** a request carries a content length that is not a whole number
 - **THEN** the response is 400 and the body is not read
+
+### Requirement: Anonymous card uploads are refused unread
+The system SHALL refuse a card upload that carries no session cookie with the same 401 response that any other unauthenticated request gets, without reading or parsing the request body. A body that declares a size over the limit SHALL still get 413 first. A body without a declared size cannot be measured without reading it, so without a cookie it gets 401. A request that carries a session cookie SHALL be checked in the usual way, whatever the cookie holds.
+
+#### Scenario: Upload without a cookie
+- **WHEN** a request without any session cookie posts a body within the size limit to the card upload route
+- **THEN** the response is 401 and the body is never read or parsed
+
+#### Scenario: Oversized upload without a cookie
+- **WHEN** a request without any session cookie declares a body larger than the upload limit
+- **THEN** the response is 413, because the declared size is checked first
+
+#### Scenario: Streamed upload without a cookie
+- **WHEN** a request without any session cookie sends its body in chunks without a declared size
+- **THEN** the response is 401 and the body is never read
+
+#### Scenario: Cookie that is not valid
+- **WHEN** a request carries a session cookie that is not valid
+- **THEN** it is refused with 401 by the usual sign-in check
+
+#### Scenario: Signed-in upload
+- **WHEN** a signed-in user uploads a card image within the limit
+- **THEN** the upload is processed as before
 
 ### Requirement: Security response headers
 The system SHALL send these headers on every response: a content security policy that allows only the app's own scripts, styles, images (including images created in the browser) and connections, and forbids framing, plugins and changes to the page's base address; `X-Content-Type-Options: nosniff`; `Referrer-Policy: no-referrer`; and `X-Frame-Options: DENY`.
