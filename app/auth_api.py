@@ -1,7 +1,7 @@
 """Sign-in, sign-out, the current user and changing one's own password."""
 
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.auth import COOKIE_NAME
 from app.deps import ServicesDep, UserDep, client_ip, require_user
@@ -11,9 +11,13 @@ public = APIRouter(prefix="/api/auth")
 protected = APIRouter(prefix="/api/auth", dependencies=[Depends(require_user)])
 
 
+MAX_EMAIL_LENGTH = 320  # the longest address email standards allow
+MAX_LOGIN_PASSWORD_LENGTH = 1024  # far beyond any real password, but it bounds the hashing work
+
+
 class LoginIn(BaseModel):
-    email: str
-    password: str
+    email: str = Field(max_length=MAX_EMAIL_LENGTH)
+    password: str = Field(max_length=MAX_LOGIN_PASSWORD_LENGTH)
 
 
 class MeOut(BaseModel):

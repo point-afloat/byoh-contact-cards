@@ -3,9 +3,10 @@
 import re
 from pathlib import Path
 
-from sqlalchemy import select
+import pytest
+from sqlalchemy import func, select
 
-from app.models import AuthSession, User
+from app.models import AuthSession, LoginAttempt, User
 from tests.auth_helpers import (
     ADMIN_EMAIL,
     ADMIN_PASSWORD,
@@ -322,3 +323,47 @@ def test_the_last_forwarded_address_is_used_because_the_client_cannot_forge_it(
             **{"X-Forwarded-For": "1.2.3.4, 203.0.113.9"},
         )
     assert res.status_code == 429
+
+
+# ---- limits on sign-in input ------------------------------------------------------------------
+def attempt_rows(services) -> int:  # type: ignore[no-untyped-def]
+    with services.db.session() as db:
+        return db.scalar(select(func.count()).select_from(LoginAttempt)) or 0
+
+
+def test_an_oversized_email_is_a_validation_error_and_leaves_no_trace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hashed: list[str] = []
+    monkeypatch.setattr("app.auth.verify_password", lambda *a: hashed.append("x") or False)
+    with running(tmp_path) as (client, services):
+        res = login(client, "a" * 309 + "@example.org", "wrong password here")  # 321 characters
+        assert res.status_code == 422 and res.json()["code"] == "validation_error"
+        assert attempt_rows(services) == 0
+    assert hashed == []
+
+
+def test_an_oversized_password_is_a_validation_error_and_is_never_hashed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hashed: list[str] = []
+    monkeypatch.setattr("app.auth.verify_password", lambda *a: hashed.append("x") or False)
+    with running(tmp_path) as (client, services):
+        res = login(client, ADMIN_EMAIL, "p" * 1025)
+        assert res.status_code == 422 and res.json()["code"] == "validation_error"
+        assert attempt_rows(services) == 0
+    assert hashed == []
+
+
+def test_oversized_attempts_do_not_count_towards_a_lockout(tmp_path: Path) -> None:
+    with running(tmp_path) as (client, _):
+        for _ in range(10):
+            assert login(client, ADMIN_EMAIL, "p" * 1025).status_code == 422
+        assert login(client, ADMIN_EMAIL, ADMIN_PASSWORD).status_code == 200
+
+
+def test_input_exactly_at_the_limits_is_still_checked_normally(tmp_path: Path) -> None:
+    long_email = "a" * 308 + "@example.org"  # exactly 320 characters
+    with running(tmp_path) as (client, services):
+        assert login(client, long_email, "p" * 1024).status_code == 401
+        assert attempt_rows(services) == 1
