@@ -5,12 +5,13 @@ boundaries (login-protection spec: "Throttling keyed by email and client address
 "Failure accounting").
 """
 
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import func, select
 
 from app.api_errors import ApiError
-from app.models import LoginAttempt
+from app.models import AuthSession, LoginAttempt
 from app.services import Services
 from tests.auth_helpers import ADMIN_EMAIL, ADMIN_PASSWORD, FakeClock, add_user, running
 
@@ -165,3 +166,89 @@ def test_the_pair_limit_lifts_when_the_window_passes(tmp_path: Path) -> None:
         assert attempt(services, ADMIN_EMAIL, ADMIN_PASSWORD, HERE) == 429
         clock.advance(minutes=1, seconds=1)
         assert attempt(services, ADMIN_EMAIL, ADMIN_PASSWORD, HERE) == 200
+
+
+# ---- clean-up of old records ------------------------------------------------------------------
+def add_old_failure(services: Services, age: timedelta) -> None:
+    """A failed attempt that is `age` old (an address nobody else uses, so it blocks no one)."""
+    with services.db.session() as db:
+        db.add(
+            LoginAttempt(
+                email="old@example.org", ip="192.0.2.1", attempted_at=services.clock() - age
+            )
+        )
+
+
+def old_failures(services: Services) -> int:
+    return failures(services, email="old@example.org")
+
+
+def add_session(
+    services: Services, *, token: str, expires_in: timedelta, last_seen_ago: timedelta
+) -> None:
+    now: datetime = services.clock()
+    with services.db.session() as db:
+        user_id = db.scalar(select(func.min(AuthSession.user_id))) or 1
+        db.add(
+            AuthSession(
+                token_hash=token,
+                user_id=user_id,
+                created_at=now - timedelta(days=1),
+                last_seen_at=now - last_seen_ago,
+                expires_at=now + expires_in,
+            )
+        )
+
+
+def session_tokens(services: Services) -> set[str]:
+    with services.db.session() as db:
+        return set(db.scalars(select(AuthSession.token_hash)))
+
+
+def test_failed_attempts_past_the_window_are_removed_and_recent_ones_stay(tmp_path: Path) -> None:
+    clock = FakeClock()
+    with running(tmp_path, clock) as (_, services):
+        fail(services, ADMIN_EMAIL, HERE, 2)
+        clock.advance(minutes=5)
+        fail(services, ADMIN_EMAIL, HERE, 1)
+        clock.advance(minutes=6)  # the first two are now 11 minutes old, the third 6
+        assert failures(services, ip=HERE) == 3
+        fail(services, "other@example.org", ELSEWHERE, 1)
+        assert failures(services, ip=HERE) == 1
+
+
+def test_expired_and_idle_sessions_are_removed_and_live_ones_stay(tmp_path: Path) -> None:
+    clock = FakeClock()
+    day, hour = timedelta(days=1), timedelta(hours=1)
+    with running(tmp_path, clock) as (_, services):
+        assert attempt(services, ADMIN_EMAIL, ADMIN_PASSWORD, HERE) == 200  # the first purge
+        real = session_tokens(services)
+        add_session(services, token="expired", expires_in=-hour, last_seen_ago=hour)
+        add_session(services, token="idle", expires_in=day, last_seen_ago=timedelta(hours=13))
+        add_session(services, token="live", expires_in=day, last_seen_ago=hour)
+        clock.advance(minutes=2)  # the next purge is due
+        assert attempt(services, ADMIN_EMAIL, WRONG, HERE) == 401
+        assert session_tokens(services) == real | {"live"}
+
+
+def test_the_purge_runs_at_most_once_a_minute(tmp_path: Path) -> None:
+    clock = FakeClock()
+    with running(tmp_path, clock) as (_, services):
+        fail(services, ADMIN_EMAIL, HERE, 1)  # first sign-in: the purge runs now
+        add_old_failure(services, timedelta(hours=1))
+        clock.advance(seconds=59)
+        fail(services, ADMIN_EMAIL, HERE, 1)
+        assert old_failures(services) == 1  # too soon: left alone
+        clock.advance(seconds=2)
+        fail(services, ADMIN_EMAIL, HERE, 1)
+        assert old_failures(services) == 0
+
+
+def test_a_refused_sign_in_still_cleans_up(tmp_path: Path) -> None:
+    clock = FakeClock()
+    with running(tmp_path, clock) as (_, services):
+        fail(services, ADMIN_EMAIL, HERE, 5)
+        clock.advance(seconds=61)
+        add_old_failure(services, timedelta(hours=1))
+        assert attempt(services, ADMIN_EMAIL, ADMIN_PASSWORD, HERE) == 429
+        assert old_failures(services) == 0

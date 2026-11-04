@@ -36,6 +36,7 @@ MAX_FAILURES_PER_EMAIL_AND_IP = 5  # one person guessing at one account from one
 MAX_FAILURES_PER_EMAIL = 30  # guessing at one account from many places (a backstop)
 MAX_FAILURES_PER_IP = 20  # one place trying many accounts
 LAST_SEEN_REFRESH = timedelta(minutes=1)  # do not write on every request
+PURGE_INTERVAL = timedelta(minutes=1)  # old rows are cleaned up at most this often
 
 
 def normalize_email(email: str) -> str:
@@ -74,6 +75,7 @@ class AuthService:
         self._db = db
         self._settings = settings
         self._clock = clock
+        self._last_purge: datetime | None = None  # in memory: a restart simply purges again
 
     # ---- sessions ------------------------------------------------------------------------
     def create_session(self, db: DbSession, user_id: int) -> str:
@@ -156,10 +158,32 @@ class AuthService:
     def _record_failure(self, db: DbSession, email: str, ip: str) -> None:
         db.add(LoginAttempt(email=email, ip=ip, attempted_at=self._clock()))
 
+    def _purge_old_records(self) -> None:
+        """Delete failed attempts past the window and dead sessions, at most once a minute.
+
+        Runs in its own transaction, so a refused or failed sign-in cannot undo it. Sign-in is
+        the only place that adds failure rows, which makes it the right place to clean them up.
+        """
+        now = self._clock()
+        if self._last_purge is not None and now - self._last_purge < PURGE_INTERVAL:
+            return
+        self._last_purge = now
+        idle = timedelta(hours=self._settings.auth_session_idle_hours)
+        with self._db.session() as db:
+            db.execute(
+                delete(LoginAttempt).where(LoginAttempt.attempted_at <= now - FAILURE_WINDOW)
+            )
+            db.execute(
+                delete(AuthSession).where(
+                    (AuthSession.expires_at <= now) | (AuthSession.last_seen_at <= now - idle)
+                )
+            )
+
     # ---- sign in -------------------------------------------------------------------------
     def login(self, email: str, password: str, ip: str) -> tuple[AuthUser, str]:
         """Check credentials. Raises 401 (always the same message) or 429 when throttled."""
         email = normalize_email(email)
+        self._purge_old_records()
         with self._db.session() as db:
             if self._is_blocked(db, email, ip):  # refused attempts are not counted again
                 raise too_many_attempts()
