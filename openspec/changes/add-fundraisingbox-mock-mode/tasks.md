@@ -10,8 +10,8 @@
 
 ## 2. Frontend: make the mock unmistakable
 
-- [ ] 2.1 `useAppInfo()` and a banner in `AppLayout` shown only in mock mode on every signed-in page; verify Testing Library tests for banner in mock, no banner in live, banner on the scan, account and users pages, and an axe check
-- [ ] 2.2 Done screen in mock mode: says the contact was not sent to FundraisingBox and shows a `<details>` with the payload that would have been sent; verify tests for the wording, the payload content, no payload and no extra text in live mode, and an axe check
+- [x] 2.1 `useAppInfo()` and a banner in `AppLayout` shown only in mock mode on every signed-in page; verify Testing Library tests for banner in mock, no banner in live, banner on the scan, account and users pages, and an axe check
+- [x] 2.2 Done screen in mock mode: says the contact was not sent to FundraisingBox and shows a `<details>` with the payload that would have been sent; verify tests for the wording, the payload content, no payload and no extra text in live mode, and an axe check
 - [ ] 2.3 Checkpoint: owner reviews and commits this group (tasks 2.1 to 2.2)
 
 ## 3. Docs and end-to-end

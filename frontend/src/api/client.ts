@@ -1,5 +1,6 @@
 import { strings } from "@/strings";
 import type {
+  AppInfoOut,
   CompanyMatch,
   Contact,
   InviteInfoOut,
@@ -78,6 +79,7 @@ export const api = {
     request<SessionOut>(`/api/sessions/${encodeURIComponent(id)}/send`, json("POST", body)),
   searchCompanies: (query: string) =>
     request<CompanyMatch[]>(`/api/companies?q=${encodeURIComponent(query)}`),
+  appInfo: () => request<AppInfoOut>("/api/app-info"),
   me: () => request<MeOut>("/api/auth/me"),
   login: (email: string, password: string) =>
     request<MeOut>("/api/auth/login", json("POST", { email, password })),

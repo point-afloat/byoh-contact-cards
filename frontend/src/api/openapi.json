@@ -19,6 +19,19 @@
         "title": "AcceptInviteIn",
         "type": "object"
       },
+      "AppInfoOut": {
+        "properties": {
+          "fundraisingbox_mode": {
+            "title": "Fundraisingbox Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fundraisingbox_mode"
+        ],
+        "title": "AppInfoOut",
+        "type": "object"
+      },
       "Body_create_session_api_sessions_post": {
         "properties": {
           "file": {
@@ -272,10 +285,12 @@
       "LoginIn": {
         "properties": {
           "email": {
+            "maxLength": 320,
             "title": "Email",
             "type": "string"
           },
           "password": {
+            "maxLength": 1024,
             "title": "Password",
             "type": "string"
           }
@@ -339,6 +354,18 @@
                 "type": "null"
               }
             ]
+          },
+          "demo_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demo Payload"
           },
           "errors": {
             "additionalProperties": {
@@ -768,6 +795,25 @@
           }
         },
         "summary": "Issue Reset Link"
+      }
+    },
+    "/api/app-info": {
+      "get": {
+        "description": "What the page needs to know about the deployment (for the mock-mode notice).",
+        "operationId": "app_info_api_app_info_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppInfoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "App Info"
       }
     },
     "/api/auth/accept-invite": {

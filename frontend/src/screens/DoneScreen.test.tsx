@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { SessionOut } from "@/api/types";
 import { strings } from "@/strings";
+import { expectNoAccessibilityViolations } from "@/test/axe";
 import { DoneScreen } from "./DoneScreen";
 
 const sent = (overrides: Partial<SessionOut> = {}): SessionOut => ({
@@ -31,4 +32,48 @@ test("offers to scan the next card", async () => {
   render(<DoneScreen session={sent()} onNext={onNext} />);
   await userEvent.click(screen.getByRole("button", { name: strings.done.next }));
   expect(onNext).toHaveBeenCalledTimes(1);
+});
+
+const PAYLOAD = {
+  last_name: "Meier",
+  first_name: "Anna",
+  info: "Email: anna@acme.org",
+  fb_custom_fields: [{ id: "16786", name: "ContactPilot", value: "Sync" }],
+};
+const demo = () => sent({ person_id: "900004", demo_payload: PAYLOAD });
+
+test("in mock mode it says nothing was sent and that this was a demo record", () => {
+  render(<DoneScreen session={demo()} onNext={() => {}} />);
+  expect(screen.getByRole("heading", { name: strings.done.mockHeading })).toHaveFocus();
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "This contact was not sent to FundraisingBox. It was a demo record (ID 900004).",
+  );
+  expect(screen.queryByText(strings.done.heading)).not.toBeInTheDocument();
+  expect(screen.queryByText(/was created/)).not.toBeInTheDocument();
+});
+
+test("in mock mode the data that would have been sent can be opened and read", async () => {
+  render(<DoneScreen session={demo()} onNext={() => {}} />);
+  const details = screen.getByText(strings.done.mockPayloadSummary).closest("details");
+  expect(details).not.toHaveAttribute("open"); // closed until asked for
+  await userEvent.click(screen.getByText(strings.done.mockPayloadSummary));
+  expect(details).toHaveAttribute("open");
+  const text = details?.querySelector("pre")?.textContent ?? "";
+  expect(JSON.parse(text)).toEqual(PAYLOAD);
+  expect(text).toContain("ContactPilot");
+  expect(text).toContain("Email: anna@acme.org");
+});
+
+test("in live mode there is no payload and no extra text", () => {
+  render(<DoneScreen session={sent()} onNext={() => {}} />);
+  expect(screen.queryByText(strings.done.mockPayloadSummary)).not.toBeInTheDocument();
+  expect(screen.queryByText(/demo record|not sent/i)).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: strings.done.heading })).toBeInTheDocument();
+  expect(document.querySelector("details")).toBeNull();
+});
+
+test("the mock done screen, with the payload open, has no accessibility violations", async () => {
+  render(<DoneScreen session={demo()} onNext={() => {}} />);
+  await userEvent.click(screen.getByText(strings.done.mockPayloadSummary));
+  await expectNoAccessibilityViolations();
 });

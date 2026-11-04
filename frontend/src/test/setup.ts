@@ -28,7 +28,12 @@ if (!HTMLDialogElement.prototype.showModal) {
 
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 // Most tests are about signed-in screens: start as the administrator. Tests override this.
-beforeEach(() => server.use(http.get("*/api/auth/me", () => HttpResponse.json(adminUser))));
+beforeEach(() =>
+  server.use(
+    http.get("*/api/auth/me", () => HttpResponse.json(adminUser)),
+    http.get("*/api/app-info", () => HttpResponse.json({ fundraisingbox_mode: "live" })),
+  ),
+);
 afterEach(() => {
   cleanup();
   server.resetHandlers();

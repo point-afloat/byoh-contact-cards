@@ -68,7 +68,16 @@ export const strings = {
     sending: "Sending…",
     failed: "Sending failed. Your entries are kept, so you can fix the problem and try again.",
   },
+  mock: {
+    label: "Mock mode",
+    banner:
+      "Mock mode: nothing is sent to FundraisingBox. Contacts you confirm are only shown on screen.",
+  },
   done: {
+    mockHeading: "Demo record created (not sent)",
+    mockMessage: (id: string | null | undefined) =>
+      `This contact was not sent to FundraisingBox. It was a demo record${id ? ` (ID ${id})` : ""}.`,
+    mockPayloadSummary: "Show what would have been sent",
     heading: "Sent to FundraisingBox",
     person: (id: string | null | undefined) => `The person was created${id ? ` (ID ${id})` : ""}.`,
     company: (id: string | null | undefined) => `The company was created${id ? ` (ID ${id})` : ""}.`,

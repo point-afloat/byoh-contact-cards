@@ -74,6 +74,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/app-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App Info
+         * @description What the page needs to know about the deployment (for the mock-mode notice).
+         */
+        get: operations["app_info_api_app_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/accept-invite": {
         parameters: {
             query?: never;
@@ -308,6 +328,11 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** AppInfoOut */
+        AppInfoOut: {
+            /** Fundraisingbox Mode */
+            fundraisingbox_mode: string;
+        };
         /** Body_create_session_api_sessions_post */
         Body_create_session_api_sessions_post: {
             /** File */
@@ -486,6 +511,10 @@ export interface components {
         /** SessionOut */
         SessionOut: {
             contact: components["schemas"]["Contact"] | null;
+            /** Demo Payload */
+            demo_payload?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Errors
              * @default {}
@@ -737,6 +766,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    app_info_api_app_info_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppInfoOut"];
                 };
             };
         };

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useAppInfo } from "@/api/hooks";
 import { useAuth } from "@/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Link, navigate, usePath } from "@/router";
@@ -24,6 +25,7 @@ function NavLink({ to, children }: { to: string; children: ReactNode }) {
 /** The frame around every page that needs a signed-in user: title, navigation and sign-out. */
 export function AppLayout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
+  const appInfo = useAppInfo();
 
   async function handleSignOut() {
     try {
@@ -35,6 +37,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-6 px-4 py-6">
+      {appInfo.data?.fundraisingbox_mode === "mock" && (
+        <section
+          aria-label={strings.mock.label}
+          className="rounded-lg border-2 border-amber-600 bg-amber-100 px-4 py-3 font-semibold text-amber-950"
+        >
+          <p>{strings.mock.banner}</p>
+        </section>
+      )}
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

@@ -7,6 +7,7 @@ export type SessionOut = components["schemas"]["SessionOut"];
 export type SendRequest = components["schemas"]["SendRequest"];
 export type CompanyChoice = components["schemas"]["CompanyChoice"];
 export type CompanyMatch = components["schemas"]["CompanyMatch"];
+export type AppInfoOut = components["schemas"]["AppInfoOut"];
 export type MeOut = components["schemas"]["MeOut"];
 export type UserOut = components["schemas"]["UserOut"];
 export type UserPatch = components["schemas"]["UserPatch"];

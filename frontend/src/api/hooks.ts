@@ -48,3 +48,13 @@ export function useCompanySearch(query: string) {
     staleTime: 60_000,
   });
 }
+
+/** What the server says about itself (for the mock-mode notice). It never changes while running. */
+export function useAppInfo() {
+  return useQuery({
+    queryKey: ["app-info"],
+    queryFn: () => api.appInfo(),
+    retry: false,
+    staleTime: Infinity,
+  });
+}
