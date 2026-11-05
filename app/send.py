@@ -14,7 +14,7 @@ from pydantic import BaseModel, model_validator
 from app.api_errors import ApiError
 from app.contact import Contact
 from app.fundraisingbox.client import CreatedRecord, FundraisingBoxError
-from app.fundraisingbox.mapping import has_address, limit_errors
+from app.fundraisingbox.mapping import Preferences, has_address, limit_errors
 from app.services import Services
 from app.sessions import Session
 from app.validation import validate_contact
@@ -34,6 +34,7 @@ class CompanyChoice(BaseModel):
 class SendRequest(BaseModel):
     contact: Contact
     company: CompanyChoice = CompanyChoice()
+    preferences: Preferences = Preferences()
 
 
 def send_session(services: Services, session_id: str, request: SendRequest) -> Session:
@@ -52,14 +53,20 @@ def send_session(services: Services, session_id: str, request: SendRequest) -> S
             raise ApiError(422, "validation_error", "Please fix the highlighted fields.", errors)
 
         if not contact.last_name:
-            return _send_company_only(services, session, contact, request.company)
-        return _send_person(services, session, contact, request.company)
+            return _send_company_only(
+                services, session, contact, request.company, request.preferences
+            )
+        return _send_person(services, session, contact, request.company, request.preferences)
     finally:
         session.send_lock.release()
 
 
 def _send_company_only(
-    services: Services, session: Session, contact: Contact, choice: CompanyChoice
+    services: Services,
+    session: Session,
+    contact: Contact,
+    choice: CompanyChoice,
+    preferences: Preferences,
 ) -> Session:
     if choice.mode != "create":
         raise ApiError(
@@ -68,7 +75,7 @@ def _send_company_only(
             "Without a last name only a new company can be created. "
             "Choose to create the company, or add a last name.",
         )
-    company_id = _create_company_once(services, session, contact.company)
+    company_id = _create_company_once(services, session, contact.company, preferences)
     _send_details(services, session, company_id, contact)
     payload = session.created_company_payload
     return services.store.mark_sent(
@@ -80,7 +87,11 @@ def _send_company_only(
 
 
 def _send_person(
-    services: Services, session: Session, contact: Contact, choice: CompanyChoice
+    services: Services,
+    session: Session,
+    contact: Contact,
+    choice: CompanyChoice,
+    preferences: Preferences,
 ) -> Session:
     note_company = choice.mode == "none"
     if session.created_person is None:
@@ -94,7 +105,7 @@ def _send_person(
                 )
             company_id = _create_company_once(services, session, contact.company)
         created = services.fundraisingbox.create_person(
-            contact, company_id=company_id, note_company=note_company
+            contact, company_id=company_id, note_company=note_company, preferences=preferences
         )
         session.created_person = (created.id, created.payload)
 
@@ -142,8 +153,9 @@ def _send_details(services: Services, session: Session, owner_id: int, contact: 
                 "partly_sent",
                 "The contact was created in FundraisingBox, but these details are missing: "
                 f"{', '.join(missing)}. {error} Your entries are kept: correct them if needed "
-                "and send again to add only what is missing. Changes to the name or the company "
-                "are not applied to the record that already exists.",
+                "and send again to add only what is missing. Changes to the name, the company or "
+                "the newsletter and contact options are not applied to the record that "
+                "already exists.",
             ) from None
 
 
@@ -162,10 +174,12 @@ def _demo_payload(
     return preview
 
 
-def _create_company_once(services: Services, session: Session, name: str) -> int:
+def _create_company_once(
+    services: Services, session: Session, name: str, preferences: Preferences | None = None
+) -> int:
     if session.created_company is not None and session.created_company[0] == name:
         return session.created_company[1]
-    created = services.fundraisingbox.create_company(name)
+    created = services.fundraisingbox.create_company(name, preferences)
     session.created_company = (name, created.id)
     session.created_company_payload = created.payload
     return created.id

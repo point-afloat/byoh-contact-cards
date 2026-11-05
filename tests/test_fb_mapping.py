@@ -5,6 +5,7 @@ from app.fundraisingbox.mapping import (
     CONTACTPILOT_CUSTOM_FIELD,
     INFO_MAX_CHARS,
     LIMITS,
+    Preferences,
     address_payload,
     build_info,
     company_payload,
@@ -14,6 +15,7 @@ from app.fundraisingbox.mapping import (
     map_salutation,
     person_payload,
     phone_payload,
+    preference_flags,
     website_payload,
 )
 
@@ -179,3 +181,44 @@ def test_company_payload_shape() -> None:
         "is_company": True,
         "company_name": "Acme GmbH",
     }
+
+
+# ---- newsletter and contact preferences ----------------------------------------------------------
+def test_no_option_ticked_adds_no_flag() -> None:
+    assert preference_flags(None) == {}
+    assert preference_flags(Preferences()) == {}
+    body = person_payload(FULL, preferences=Preferences())
+    assert not any(key.startswith("wants_") for key in body)
+
+
+@pytest.mark.parametrize(
+    ("option", "flags"),
+    [
+        ("newsletter", {"wants_newsletter": True}),
+        ("email", {"wants_no_email": False}),
+        ("phone", {"wants_no_call": False}),
+        ("post", {"wants_no_post": False}),
+    ],
+)
+def test_each_ticked_option_adds_exactly_its_flag(option: str, flags: dict[str, bool]) -> None:
+    prefs = Preferences(**{option: True})
+    assert preference_flags(prefs) == flags
+    body = person_payload(FULL, preferences=prefs)
+    assert {k: v for k, v in body.items() if k.startswith("wants_")} == flags
+
+
+def test_all_options_together_and_the_company_body() -> None:
+    prefs = Preferences(newsletter=True, email=True, phone=True, post=True)
+    assert preference_flags(prefs) == {
+        "wants_newsletter": True,
+        "wants_no_email": False,
+        "wants_no_call": False,
+        "wants_no_post": False,
+    }
+    assert company_payload("Acme", prefs)["wants_newsletter"] is True
+    assert "wants_newsletter" not in company_payload("Acme")
+
+
+def test_an_unknown_preference_key_is_refused() -> None:
+    with pytest.raises(ValueError):
+        Preferences(**{"newsletter": True, "wants_mailing": True})  # type: ignore[arg-type]

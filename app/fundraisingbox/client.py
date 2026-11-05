@@ -13,6 +13,7 @@ import httpx
 from app.config import Settings, require_fundraisingbox_token
 from app.contact import Contact
 from app.fundraisingbox.mapping import (
+    Preferences,
     address_payload,
     company_payload,
     email_payload,
@@ -88,13 +89,21 @@ class FundraisingBoxClient:
             matches.append(CompanyMatch(id=identifier, name=company_name, city=_first_city(item)))
         return matches
 
-    def create_company(self, name: str) -> CreatedRecord:
-        return self._created(self._call("POST", PERSONS_URL, json=company_payload(name)))
+    def create_company(self, name: str, preferences: Preferences | None = None) -> CreatedRecord:
+        body = company_payload(name, preferences)
+        return self._created(self._call("POST", PERSONS_URL, json=body))
 
     def create_person(
-        self, contact: Contact, *, company_id: int | None = None, note_company: bool = False
+        self,
+        contact: Contact,
+        *,
+        company_id: int | None = None,
+        note_company: bool = False,
+        preferences: Preferences | None = None,
     ) -> CreatedRecord:
-        payload = person_payload(contact, company_id=company_id, note_company=note_company)
+        payload = person_payload(
+            contact, company_id=company_id, note_company=note_company, preferences=preferences
+        )
         return self._created(self._call("POST", PERSONS_URL, json=payload))
 
     def add_email(self, owner_id: int, contact: Contact) -> CreatedRecord:

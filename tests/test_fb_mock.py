@@ -95,3 +95,15 @@ def test_live_is_the_default_and_the_mode_picks_the_implementation(tmp_path: Pat
     assert isinstance(live.fundraisingbox, FundraisingBoxClient)
     mock = make_services(tmp_path / "mock", fundraisingbox_mode="mock")
     assert isinstance(mock.fundraisingbox, MockFundraisingBox)
+
+
+def test_the_mock_preview_carries_the_same_flags_as_the_live_body() -> None:
+    from app.fundraisingbox.mapping import Preferences, person_payload
+
+    prefs = Preferences(newsletter=True, email=True)
+    mock = MockFundraisingBox()
+    assert mock.create_person(ANNA, preferences=prefs).payload == person_payload(
+        ANNA, preferences=prefs
+    )
+    assert "wants_newsletter" in mock.create_company("Neu", prefs).payload
+    assert "wants_newsletter" not in mock.create_person(ANNA).payload

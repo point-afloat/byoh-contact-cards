@@ -7,6 +7,8 @@ the notes, the company name when it is not linked, and a country text that is no
 
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict
+
 from app.contact import Contact
 from app.fundraisingbox.countries import country_code
 
@@ -58,6 +60,38 @@ def map_salutation(value: str) -> str | None:
     return _SALUTATION_ALIASES.get(value.strip().lower())
 
 
+class Preferences(BaseModel):
+    """Consent the reviewer ticked. Never read from the card; unticked means no claim."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    newsletter: bool = False
+    email: bool = False
+    phone: bool = False
+    post: bool = False
+
+
+def preference_flags(preferences: Preferences | None) -> dict[str, bool]:
+    """FundraisingBox flags for the ticked options only (the others keep FundraisingBox's default).
+
+    Ticked contact options clear the matching "do not contact" flag. Direction of the three
+    wants_no_* flags and the meaning of wants_newsletter are read from sparse documentation and
+    are checked on the first live send.
+    """
+    if preferences is None:
+        return {}
+    flags: dict[str, bool] = {}
+    if preferences.newsletter:
+        flags["wants_newsletter"] = True
+    if preferences.email:
+        flags["wants_no_email"] = False
+    if preferences.phone:
+        flags["wants_no_call"] = False
+    if preferences.post:
+        flags["wants_no_post"] = False
+    return flags
+
+
 def has_address(contact: Contact) -> bool:
     return bool(
         contact.street or contact.postal_code or contact.city or country_code(contact.country)
@@ -93,7 +127,11 @@ def limit_errors(contact: Contact, *, note_company: bool = False) -> dict[str, s
 
 
 def person_payload(
-    contact: Contact, *, company_id: int | None = None, note_company: bool = False
+    contact: Contact,
+    *,
+    company_id: int | None = None,
+    note_company: bool = False,
+    preferences: Preferences | None = None,
 ) -> dict[str, Any]:
     """Build the POST /persons.json body (documented person fields only)."""
     payload: dict[str, Any] = {"last_name": contact.last_name}
@@ -106,18 +144,19 @@ def person_payload(
         "info": build_info(contact, note_company=note_company and company_id is None),
     }
     payload.update({key: value for key, value in optional.items() if value not in ("", None)})
+    payload.update(preference_flags(preferences))
     payload["fb_custom_fields"] = [dict(CONTACTPILOT_CUSTOM_FIELD)]
     return payload
 
 
-def company_payload(name: str) -> dict[str, Any]:
+def company_payload(name: str, preferences: Preferences | None = None) -> dict[str, Any]:
     """Body for creating a company record.
 
     The documented `last_name` applies only when `is_company` is false, and the live API
     rejects it for a company as `not_editable`, so a company carries `company_name` only.
     The name limit is checked locally (see LIMITS["company"]).
     """
-    return {"is_company": True, "company_name": name}
+    return {"is_company": True, "company_name": name, **preference_flags(preferences)}
 
 
 def email_payload(owner_id: int, contact: Contact) -> dict[str, Any]:

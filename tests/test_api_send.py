@@ -519,3 +519,88 @@ def test_a_second_failure_is_reported_again_and_the_session_stays_open(
         assert res.status_code == 502 and res.json()["code"] == "partly_sent"
     assert routes["person"].call_count == 1
     assert client.get(f"/api/sessions/{session_id}").json()["sent"] is False
+
+
+# ---- newsletter and contact preferences ----------------------------------------------------------
+def send_with(
+    client: TestClient, session_id: str, contact: dict[str, str], preferences: dict[str, object]
+) -> httpx.Response:
+    body = {"contact": contact, "preferences": preferences}
+    response: httpx.Response = client.post(f"/api/sessions/{session_id}/send", json=body)
+    return response
+
+
+@respx.mock
+def test_ticked_options_are_sent_on_the_person_and_nothing_else(client: TestClient) -> None:
+    routes = all_routes()
+    session_id = open_session(client, FULL_CARD)
+    res = send_with(client, session_id, FULL_CARD, {"newsletter": True, "phone": True})
+    assert res.status_code == 200
+    (person,) = fb_bodies(routes["person"])
+    assert person["wants_newsletter"] is True and person["wants_no_call"] is False
+    assert "wants_no_email" not in person and "wants_no_post" not in person
+
+
+@respx.mock
+def test_no_options_send_no_flags(client: TestClient) -> None:
+    routes = all_routes()
+    session_id = open_session(client, FULL_CARD)
+    assert send(client, session_id, FULL_CARD).status_code == 200
+    (person,) = fb_bodies(routes["person"])
+    assert not any(key.startswith("wants_") for key in person)
+
+
+@respx.mock
+def test_an_unknown_preference_key_is_refused_with_a_validation_error(
+    client: TestClient,
+) -> None:
+    routes = all_routes()
+    session_id = open_session(client, FULL_CARD)
+    res = send_with(client, session_id, FULL_CARD, {"wants_mailing": True})
+    assert res.status_code == 422 and res.json()["code"] == "validation_error"
+    assert routes["person"].call_count == 0
+
+
+@respx.mock
+def test_options_go_to_the_company_of_a_company_only_card_and_not_to_a_company_made_for_a_person(
+    client: TestClient,
+) -> None:
+    routes = all_routes()
+    card = {"company": "Acme GmbH"}
+    session_id = open_session(client, card)
+    body = {"contact": card, "company": {"mode": "create"}, "preferences": {"newsletter": True}}
+    assert client.post(f"/api/sessions/{session_id}/send", json=body).status_code == 200
+    assert fb_bodies(routes["person"])[0]["wants_newsletter"] is True
+
+    routes2 = all_routes()
+    session2 = open_session(client, CARD)
+    body2 = {"contact": CARD, "company": {"mode": "create"}, "preferences": {"newsletter": True}}
+    assert client.post(f"/api/sessions/{session2}/send", json=body2).status_code == 200
+    company, person = fb_bodies(routes2["person"])[-2:]
+    assert "wants_newsletter" not in company and person["wants_newsletter"] is True
+
+
+def test_the_mock_preview_shows_the_flags(mock_setup: tuple[TestClient, Services]) -> None:
+    client, _ = mock_setup
+    session_id = open_session(client)
+    res = send_with(client, session_id, CARD, {"newsletter": True, "email": True})
+    person = res.json()["demo_payload"]["person"]
+    assert person["wants_newsletter"] is True and person["wants_no_email"] is False
+    assert "wants_no_call" not in person
+
+
+@respx.mock
+def test_a_resend_after_a_failure_says_the_options_are_not_applied(client: TestClient) -> None:
+    routes = all_routes()
+    routes["phone"].mock(side_effect=[httpx.Response(400), httpx.Response(201, json={"id": 800})])
+    session_id = open_session(client)
+    failed = send_with(client, session_id, CARD, {"newsletter": False})
+    assert (
+        failed.status_code == 502 and "newsletter and contact options" in failed.json()["message"]
+    )
+    retry = send_with(client, session_id, CARD, {"newsletter": True})
+    assert retry.status_code == 200
+    assert routes["person"].call_count == 1  # no second person
+    assert (
+        "wants_newsletter" not in fb_bodies(routes["person"])[0]
+    )  # the changed choice is not applied

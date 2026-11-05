@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from app.contact import Contact
 from app.fundraisingbox.client import CompanyMatch, CreatedRecord
 from app.fundraisingbox.mapping import (
+    Preferences,
     address_payload,
     company_payload,
     email_payload,
@@ -58,17 +59,24 @@ class MockFundraisingBox:
             found = [c for c in self._companies if needle in c.name.lower()]
         return [CompanyMatch(id=c.id, name=c.name, city=c.city) for c in found[:limit]]
 
-    def create_company(self, name: str) -> CreatedRecord:
-        payload = company_payload(name)
+    def create_company(self, name: str, preferences: Preferences | None = None) -> CreatedRecord:
+        payload = company_payload(name, preferences)
         with self._lock:
             identifier = self._take_id()
             self._companies.append(_Company(identifier, name, None))
         return CreatedRecord(id=identifier, payload=payload)
 
     def create_person(
-        self, contact: Contact, *, company_id: int | None = None, note_company: bool = False
+        self,
+        contact: Contact,
+        *,
+        company_id: int | None = None,
+        note_company: bool = False,
+        preferences: Preferences | None = None,
     ) -> CreatedRecord:
-        payload = person_payload(contact, company_id=company_id, note_company=note_company)
+        payload = person_payload(
+            contact, company_id=company_id, note_company=note_company, preferences=preferences
+        )
         with self._lock:  # the payload is built first: a refused contact uses up no id
             identifier = self._take_id()
         return CreatedRecord(id=identifier, payload=payload)

@@ -160,3 +160,18 @@ def test_each_detail_call_posts_to_its_own_url_with_the_token_and_returns_the_id
         request = route.calls[0].request
         assert request.headers["authorization"].startswith("Basic ")
         assert json.loads(request.content)["fb_person_id"] == 5
+
+
+@respx.mock
+def test_preferences_are_in_the_live_person_and_company_bodies_only_when_ticked() -> None:
+    from app.fundraisingbox.mapping import Preferences
+
+    route = respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 1}))
+    client = make_client()
+    client.create_person(CONTACT, preferences=Preferences(newsletter=True, post=True))
+    client.create_person(CONTACT)
+    client.create_company("Acme", Preferences(phone=True))
+    person, plain, company = (json.loads(call.request.content) for call in route.calls)
+    assert person["wants_newsletter"] is True and person["wants_no_post"] is False
+    assert not any(key.startswith("wants_") for key in plain)
+    assert company["wants_no_call"] is False
