@@ -33,7 +33,7 @@
 ## 5. Documentation and integration check
 
 - [x] 5.1 Document first-admin bootstrap, `DATA_DIR`/volume, env vars (`INITIAL_ADMIN_*`, session lifetimes, `TRUSTED_PROXY`), admin guide for the NGO (inviting, deactivating, resetting, break-glass), and password policy; verify the guide's button names match the app (a test, `frontend/src/docs.test.ts`) and that its steps work in a real browser and container (done); a colleague following it unaided is left to the owner
-- [ ] 5.2 End-to-end check on the deployed instance: bootstrap admin signs in, invites a second user who accepts on a phone and sends a card, admin deactivates that user and their session ends; run `ruff`, `mypy`, `pytest`, `eslint`, `tsc`, `vitest` clean
+- [x] 5.2 End-to-end check on the deployed instance: bootstrap admin signs in, invites a second user who accepts on a phone and sends a card, admin deactivates that user and their session ends; run `ruff`, `mypy`, `pytest`, `eslint`, `tsc`, `vitest` clean
 
 ## Workflow follow-up
 
