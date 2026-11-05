@@ -3,6 +3,7 @@
 import type { components } from "./schema";
 
 export type Contact = components["schemas"]["Contact"];
+export type Preferences = components["schemas"]["Preferences"];
 export type SessionOut = components["schemas"]["SessionOut"];
 export type SendRequest = components["schemas"]["SendRequest"];
 export type CompanyChoice = components["schemas"]["CompanyChoice"];

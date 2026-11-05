@@ -2,7 +2,13 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/test/server";
 import { api, ApiClientError } from "./client";
 
-const session = { id: "abc", contact: null, warnings: [], sent: false, errors: {} };
+const session = {
+  id: "abc",
+  contact: null,
+  warnings: [],
+  sent: false,
+  errors: {},
+};
 
 test("uploads the file as multipart form data under the 'file' field", async () => {
   // jsdom's FormData cannot travel through Node's fetch, so inspect the request directly.
@@ -25,14 +31,28 @@ test("turns the uniform error body into an ApiClientError with field errors", as
   server.use(
     http.post("*/api/sessions/abc/send", () =>
       HttpResponse.json(
-        { code: "validation_error", message: "Please fix the highlighted fields.", errors: { email: "bad" } },
+        {
+          code: "validation_error",
+          message: "Please fix the highlighted fields.",
+          errors: { email: "bad" },
+        },
         { status: 422 },
       ),
     ),
   );
-  const error = await api.send("abc", { contact: {} as never, company: { mode: "none" } }).catch((e) => e);
+  const error = await api
+    .send("abc", {
+      contact: {} as never,
+      company: { mode: "none" },
+      preferences: {} as never,
+    })
+    .catch((e) => e);
   expect(error).toBeInstanceOf(ApiClientError);
-  expect(error).toMatchObject({ status: 422, code: "validation_error", errors: { email: "bad" } });
+  expect(error).toMatchObject({
+    status: 422,
+    code: "validation_error",
+    errors: { email: "bad" },
+  });
 });
 
 test("reports an unreachable server with a readable message", async () => {
@@ -42,7 +62,12 @@ test("reports an unreachable server with a readable message", async () => {
 });
 
 test("handles a non-JSON error body", async () => {
-  server.use(http.get("*/api/sessions/abc", () => new HttpResponse("oops", { status: 500 })));
+  server.use(
+    http.get(
+      "*/api/sessions/abc",
+      () => new HttpResponse("oops", { status: 500 }),
+    ),
+  );
   const error = await api.getSession("abc").catch((e) => e);
   expect(error).toMatchObject({ status: 500, code: "http_500" });
 });

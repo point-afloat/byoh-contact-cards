@@ -10,12 +10,16 @@ const TOKEN = "a-long-random-token-1234567890-abcdefghijklmnop";
 const GOOD = "the chosen long passphrase";
 const joiner = { id: 2, email: "new@example.org", role: "member" };
 const notSignedIn = () =>
-  HttpResponse.json({ code: "not_authenticated", message: "Please sign in." }, { status: 401 });
+  HttpResponse.json(
+    { code: "not_authenticated", message: "Please sign in." },
+    { status: 401 },
+  );
 const invalidLink = () =>
   HttpResponse.json(
     {
       code: "invite_invalid",
-      message: "This link is no longer valid. Ask an administrator for a new one.",
+      message:
+        "This link is no longer valid. Ask an administrator for a new one.",
     },
     { status: 400 },
   );
@@ -25,14 +29,17 @@ function openLink(hash = `#token=${TOKEN}`, kind = "invite") {
   window.history.replaceState(null, "", `/accept-invite${hash}`);
   server.use(
     http.get("*/api/auth/me", notSignedIn),
-    http.post("*/api/auth/invite-info", () => HttpResponse.json({ email: joiner.email, kind })),
+    http.post("*/api/auth/invite-info", () =>
+      HttpResponse.json({ email: joiner.email, kind }),
+    ),
   );
   return render(<App />);
 }
 
 const password = () => screen.findByLabelText(strings.invite.password);
 const confirm = () => screen.getByLabelText(strings.invite.confirm);
-const submit = (name: string = strings.invite.submitInvite) => screen.getByRole("button", { name });
+const submit = (name: string = strings.invite.submitInvite) =>
+  screen.getByRole("button", { name });
 
 test("a valid invitation asks for a password for that address, and signs the person in", async () => {
   let signedIn = false;
@@ -45,15 +52,23 @@ test("a valid invitation asks for a password for that address, and signs the per
     }),
   );
   openLink();
-  server.use(http.get("*/api/auth/me", () => (signedIn ? HttpResponse.json(joiner) : notSignedIn())));
+  server.use(
+    http.get("*/api/auth/me", () =>
+      signedIn ? HttpResponse.json(joiner) : notSignedIn(),
+    ),
+  );
 
-  expect(await screen.findByRole("heading", { name: strings.invite.welcomeHeading })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: strings.invite.welcomeHeading }),
+  ).toBeInTheDocument();
   expect(screen.getByText(joiner.email)).toBeInTheDocument();
   await userEvent.type(await password(), GOOD);
   await userEvent.type(confirm(), GOOD);
   await userEvent.click(submit());
 
-  expect(await screen.findByRole("heading", { name: strings.upload.heading })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: strings.upload.heading }),
+  ).toBeInTheDocument();
   expect(bodies).toEqual([{ token: TOKEN, password: GOOD }]);
   expect(window.location.pathname).toBe("/");
   expect(window.location.hash).toBe(""); // the token is gone from the address bar
@@ -61,7 +76,9 @@ test("a valid invitation asks for a password for that address, and signs the per
 
 test("a password-reset link has its own wording", async () => {
   openLink(`#token=${TOKEN}`, "reset");
-  expect(await screen.findByRole("heading", { name: strings.invite.resetHeading })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: strings.invite.resetHeading }),
+  ).toBeInTheDocument();
   expect(submit(strings.invite.submitReset)).toBeInTheDocument();
 });
 
@@ -79,10 +96,18 @@ test("the token is sent in a request body, never in a URL", async () => {
 test("an invalid, used or expired link says so and points to an administrator", async () => {
   openLink();
   server.use(http.post("*/api/auth/invite-info", invalidLink));
-  expect(await screen.findByRole("heading", { name: strings.invite.invalidHeading })).toBeInTheDocument();
-  expect(screen.getByText(/Ask an administrator for a new one/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: strings.invite.toSignIn })).toHaveAttribute("href", "/login");
-  expect(screen.queryByLabelText(strings.invite.password)).not.toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: strings.invite.invalidHeading }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/Ask an administrator for a new one/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: strings.invite.toSignIn }),
+  ).toHaveAttribute("href", "/login");
+  expect(
+    screen.queryByLabelText(strings.invite.password),
+  ).not.toBeInTheDocument();
 });
 
 test("a link without a token is invalid and no request is made", async () => {
@@ -94,7 +119,9 @@ test("a link without a token is invalid and no request is made", async () => {
     }),
   );
   openLink("");
-  expect(await screen.findByRole("heading", { name: strings.invite.invalidHeading })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: strings.invite.invalidHeading }),
+  ).toBeInTheDocument();
   expect(requests).toHaveLength(0);
 });
 
@@ -110,7 +137,9 @@ test("a link that stops working while the form is open turns into the invalid me
   await userEvent.type(await password(), GOOD);
   await userEvent.type(confirm(), GOOD);
   await userEvent.click(submit());
-  expect(await screen.findByRole("heading", { name: strings.invite.invalidHeading })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: strings.invite.invalidHeading }),
+  ).toBeInTheDocument();
 });
 
 test("a weak password is reported on the field and the form stays usable", async () => {
@@ -119,8 +148,12 @@ test("a weak password is reported on the field and the form stays usable", async
       HttpResponse.json(
         {
           code: "validation_error",
-          message: "This password is too easy to guess. Choose a different one.",
-          errors: { password: "This password is too easy to guess. Choose a different one." },
+          message:
+            "This password is too easy to guess. Choose a different one.",
+          errors: {
+            password:
+              "This password is too easy to guess. Choose a different one.",
+          },
         },
         { status: 422 },
       ),
@@ -131,9 +164,16 @@ test("a weak password is reported on the field and the form stays usable", async
   await userEvent.type(confirm(), "password12345");
   await userEvent.click(submit());
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("too easy to guess");
-  await waitFor(() => expect(screen.getByLabelText(strings.invite.password)).toHaveFocus());
-  expect(screen.getByLabelText(strings.invite.password)).toHaveAttribute("aria-invalid", "true");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "too easy to guess",
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText(strings.invite.password)).toHaveFocus(),
+  );
+  expect(screen.getByLabelText(strings.invite.password)).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
 });
 
 test("a too short password or a mismatch is caught before anything is sent", async () => {
@@ -147,7 +187,9 @@ test("a too short password or a mismatch is caught before anything is sent", asy
   openLink();
   await userEvent.type(await password(), "short");
   await userEvent.click(submit());
-  expect(await screen.findByRole("alert")).toHaveTextContent(strings.invite.tooShort);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    strings.invite.tooShort,
+  );
   expect(screen.getByLabelText(strings.invite.password)).toHaveFocus();
 
   await userEvent.clear(screen.getByLabelText(strings.invite.password));
@@ -166,13 +208,21 @@ test("when the server cannot be asked, the page offers to try again", async () =
     http.get("*/api/auth/me", notSignedIn),
     http.post("*/api/auth/invite-info", () => {
       calls += 1;
-      return calls === 1 ? HttpResponse.error() : HttpResponse.json({ email: joiner.email, kind: "invite" });
+      return calls === 1
+        ? HttpResponse.error()
+        : HttpResponse.json({ email: joiner.email, kind: "invite" });
     }),
   );
   render(<App />);
-  expect(await screen.findByRole("alert")).toHaveTextContent(strings.networkError);
-  await userEvent.click(screen.getByRole("button", { name: strings.invite.retry }));
-  expect(await screen.findByRole("heading", { name: strings.invite.welcomeHeading })).toBeInTheDocument();
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    strings.networkError,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: strings.invite.retry }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: strings.invite.welcomeHeading }),
+  ).toBeInTheDocument();
 });
 
 test("the ready and the invalid states have no accessibility violations", async () => {
@@ -182,7 +232,10 @@ test("the ready and the invalid states have no accessibility violations", async 
   ready.unmount();
 
   window.history.replaceState(null, "", `/accept-invite#token=${TOKEN}`);
-  server.use(http.get("*/api/auth/me", notSignedIn), http.post("*/api/auth/invite-info", invalidLink));
+  server.use(
+    http.get("*/api/auth/me", notSignedIn),
+    http.post("*/api/auth/invite-info", invalidLink),
+  );
   const invalid = render(<App />);
   await screen.findByRole("heading", { name: strings.invite.invalidHeading });
   await expectNoAccessibilityViolations(invalid.container);

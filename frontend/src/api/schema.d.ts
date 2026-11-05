@@ -498,6 +498,32 @@ export interface components {
             /** Role */
             role: string;
         };
+        /**
+         * Preferences
+         * @description Consent the reviewer ticked. Never read from the card; unticked means no claim.
+         */
+        Preferences: {
+            /**
+             * Email
+             * @default false
+             */
+            email: boolean;
+            /**
+             * Newsletter
+             * @default false
+             */
+            newsletter: boolean;
+            /**
+             * Phone
+             * @default false
+             */
+            phone: boolean;
+            /**
+             * Post
+             * @default false
+             */
+            post: boolean;
+        };
         /** SendRequest */
         SendRequest: {
             /**
@@ -507,6 +533,15 @@ export interface components {
              */
             company: components["schemas"]["CompanyChoice"];
             contact: components["schemas"]["Contact"];
+            /**
+             * @default {
+             *       "email": false,
+             *       "newsletter": false,
+             *       "phone": false,
+             *       "post": false
+             *     }
+             */
+            preferences: components["schemas"]["Preferences"];
         };
         /** SessionOut */
         SessionOut: {

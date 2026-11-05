@@ -51,6 +51,8 @@ const PAYLOAD = {
   person: {
     last_name: "Meier",
     first_name: "Anna",
+    wants_newsletter: true,
+    wants_no_email: false,
     fb_custom_fields: [{ id: 16786, value: "Sync" }],
   },
   emails: [
@@ -87,6 +89,10 @@ test("in mock mode the data that would have been sent can be opened and read", a
   const text = details?.querySelector("pre")?.textContent ?? "";
   expect(JSON.parse(text)).toEqual(PAYLOAD);
   expect(text).toContain("16786");
+  expect(JSON.parse(text).person).toMatchObject({
+    wants_newsletter: true,
+    wants_no_email: false,
+  });
   expect(text).toContain('"email": "anna@acme.org"');
 });
 

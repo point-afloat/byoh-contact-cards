@@ -31,6 +31,14 @@ export const strings = {
       address: "Address",
       notes: "Notes",
     },
+    preferences: {
+      legend: "Communication",
+      hint: "Only tick what this person agreed to. A business card is not consent.",
+      newsletter: "Subscribe to the newsletter",
+      email: "May be contacted by email",
+      phone: "May be contacted by phone",
+      post: "May be contacted by post",
+    },
     errors: {
       identity: "Enter a last name or a company.",
       email: "This is not a valid email address.",

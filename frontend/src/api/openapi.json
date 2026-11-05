@@ -325,6 +325,34 @@
         "title": "MeOut",
         "type": "object"
       },
+      "Preferences": {
+        "additionalProperties": false,
+        "description": "Consent the reviewer ticked. Never read from the card; unticked means no claim.",
+        "properties": {
+          "email": {
+            "default": false,
+            "title": "Email",
+            "type": "boolean"
+          },
+          "newsletter": {
+            "default": false,
+            "title": "Newsletter",
+            "type": "boolean"
+          },
+          "phone": {
+            "default": false,
+            "title": "Phone",
+            "type": "boolean"
+          },
+          "post": {
+            "default": false,
+            "title": "Post",
+            "type": "boolean"
+          }
+        },
+        "title": "Preferences",
+        "type": "object"
+      },
       "SendRequest": {
         "properties": {
           "company": {
@@ -335,6 +363,15 @@
           },
           "contact": {
             "$ref": "#/components/schemas/Contact"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/Preferences",
+            "default": {
+              "email": false,
+              "newsletter": false,
+              "phone": false,
+              "post": false
+            }
           }
         },
         "required": [

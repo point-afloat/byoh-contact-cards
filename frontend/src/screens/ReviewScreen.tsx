@@ -4,19 +4,34 @@ import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { api, type ApiClientError } from "@/api/client";
 import { useSaveContact } from "@/api/hooks";
-import type { CompanyChoice, Contact, SessionOut } from "@/api/types";
+import type {
+  CompanyChoice,
+  Contact,
+  Preferences,
+  SessionOut,
+} from "@/api/types";
 import { CompanyPicker } from "@/components/CompanyPicker";
 import { ErrorAlert, Spinner } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useSingleFlight } from "@/hooks/useSingleFlight";
 import { cn } from "@/lib/utils";
 import { strings } from "@/strings";
-import { contactSchema, emptyContact, type FieldConfig, type FieldName, SECTIONS } from "./fields";
+import {
+  contactSchema,
+  emptyContact,
+  type FieldConfig,
+  type FieldName,
+  SECTIONS,
+} from "./fields";
 
 type Props = {
   session: SessionOut;
   /** When given, a confirm button is shown and called with the validated contact and company choice. */
-  onConfirm?: (contact: Contact, company: CompanyChoice) => Promise<void> | void;
+  onConfirm?: (
+    contact: Contact,
+    company: CompanyChoice,
+    preferences: Preferences,
+  ) => Promise<void> | void;
   /** A send is in progress: the form and button are disabled. */
   sending?: boolean;
   /** The last send failed; shown above the form while the entries are kept. */
@@ -27,7 +42,13 @@ type Props = {
 const inputClass =
   "min-h-11 w-full rounded-lg border border-border bg-background px-3 text-base focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring aria-[invalid=true]:border-destructive";
 
-export function ReviewScreen({ session, onConfirm, sending = false, sendError, debounceMs }: Props) {
+export function ReviewScreen({
+  session,
+  onConfirm,
+  sending = false,
+  sendError,
+  debounceMs,
+}: Props) {
   const save = useSaveContact(session.id);
   const {
     register,
@@ -44,9 +65,17 @@ export function ReviewScreen({ session, onConfirm, sending = false, sendError, d
 
   const values = useWatch({ control });
   const [company, setCompany] = useState<CompanyChoice>({ mode: "none" });
+  // Consent comes only from the reviewer: never from the card, never in the saved draft.
+  const [preferences, setPreferences] = useState<Required<Preferences>>({
+    newsletter: false,
+    email: false,
+    phone: false,
+    post: false,
+  });
   const singleFlight = useSingleFlight();
   const companyName = (values.company ?? "").trim();
-  const companyOnly = companyName !== "" && (values.last_name ?? "").trim() === "";
+  const companyOnly =
+    companyName !== "" && (values.last_name ?? "").trim() === "";
 
   // Field problems reported by the server (it stays authoritative) show on the fields.
   useEffect(() => {
@@ -62,7 +91,9 @@ export function ReviewScreen({ session, onConfirm, sending = false, sendError, d
     const id = `field-${field.name}`;
     const error = errors[field.name]?.message;
     const empty = (values[field.name] ?? "").trim() === "";
-    const describedBy = [error && `${id}-error`, empty && `${id}-hint`].filter(Boolean).join(" ");
+    const describedBy = [error && `${id}-error`, empty && `${id}-hint`]
+      .filter(Boolean)
+      .join(" ");
     const common = {
       id,
       autoComplete: field.autoComplete,
@@ -91,13 +122,20 @@ export function ReviewScreen({ session, onConfirm, sending = false, sendError, d
           </datalist>
         )}
         {empty && !error && (
-          <p id={`${id}-hint`} className="flex items-center gap-1 text-sm text-muted-foreground">
+          <p
+            id={`${id}-hint`}
+            className="flex items-center gap-1 text-sm text-muted-foreground"
+          >
             <CircleDashed aria-hidden="true" className="size-4" />
             {strings.review.notFound}
           </p>
         )}
         {error && (
-          <p id={`${id}-error`} role="alert" className="text-sm text-destructive">
+          <p
+            id={`${id}-error`}
+            role="alert"
+            className="text-sm text-destructive"
+          >
             {error}
           </p>
         )}
@@ -146,7 +184,11 @@ export function ReviewScreen({ session, onConfirm, sending = false, sendError, d
           onSubmit={handleSubmit((contact) =>
             singleFlight(async () => {
               if (sending) return;
-              await onConfirm?.(contact, companyName ? company : { mode: "none" });
+              await onConfirm?.(
+                contact,
+                companyName ? company : { mode: "none" },
+                preferences,
+              );
             }),
           )}
           aria-busy={sending}
@@ -169,8 +211,41 @@ export function ReviewScreen({ session, onConfirm, sending = false, sendError, d
                 )}
               </fieldset>
             ))}
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-base font-semibold">
+                {strings.review.preferences.legend}
+              </legend>
+              <p className="text-sm text-muted-foreground">
+                {strings.review.preferences.hint}
+              </p>
+              {(["newsletter", "email", "phone", "post"] as const).map(
+                (option) => (
+                  <label
+                    key={option}
+                    className="flex min-h-11 items-center gap-3 text-base"
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-5"
+                      checked={preferences[option]}
+                      onChange={(event) =>
+                        setPreferences((current) => ({
+                          ...current,
+                          [option]: event.target.checked,
+                        }))
+                      }
+                    />
+                    {strings.review.preferences[option]}
+                  </label>
+                ),
+              )}
+            </fieldset>
             {onConfirm && (
-              <Button type="submit" disabled={sending} className="w-full sm:w-auto">
+              <Button
+                type="submit"
+                disabled={sending}
+                className="w-full sm:w-auto"
+              >
                 {sending ? (
                   <>
                     <Spinner />

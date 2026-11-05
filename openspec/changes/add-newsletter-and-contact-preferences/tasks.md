@@ -9,8 +9,8 @@
 
 ## 2. Frontend: the Communication section
 
-- [ ] 2.1 Regenerate the API types and add a Communication group of four checkboxes (all unticked, labelled, in a labelled `fieldset`) to the review form, with the strings, sending the choices with the confirm call and never saving them in the draft. Verify with Testing Library tests: all four unticked on first render even when the contact has an email and phone, toggling, the exact `preferences` in the send request, not part of the draft save, and an axe check. (files: frontend/src/screens/ReviewScreen.tsx, frontend/src/strings.ts, frontend/src/screens/ReviewScreen.test.tsx, frontend/src/api/schema.d.ts)
-- [ ] 2.2 Show the flags in the done-screen preview test data and check the preview prints them. Verify that a mock-mode send with the newsletter ticked shows `wants_newsletter` in the preview. (files: frontend/src/screens/DoneScreen.test.tsx)
+- [x] 2.1 Regenerate the API types and add a Communication group of four checkboxes (all unticked, labelled, in a labelled `fieldset`) to the review form, with the strings, sending the choices with the confirm call and never saving them in the draft. Verify with Testing Library tests: all four unticked on first render even when the contact has an email and phone, toggling, the exact `preferences` in the send request, not part of the draft save, and an axe check. (files: frontend/src/screens/ReviewScreen.tsx, frontend/src/strings.ts, frontend/src/screens/ReviewScreen.test.tsx, frontend/src/api/schema.d.ts)
+- [x] 2.2 Show the flags in the done-screen preview test data and check the preview prints them. Verify that a mock-mode send with the newsletter ticked shows `wants_newsletter` in the preview. (files: frontend/src/screens/DoneScreen.test.tsx)
 - [ ] 2.3 Checkpoint: owner reviews and commits this group (tasks 2.1 to 2.2)
 
 ## 3. Docs and final checks
