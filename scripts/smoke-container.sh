@@ -218,11 +218,13 @@ session="$(curl -s -b "$jar" -H 'X-Requested-With: smoke' -F "file=@$stub_dir/ca
 session_id="$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' <<<"$session")"
 check "a card can be scanned (stand-in model)" test -n "$session_id"
 contact='{"first_name":"Anna","last_name":"Meier","company":"Acme GmbH","email":"anna@acme.org","phone":"+49 30 1234","street":"Hauptstr. 1","postal_code":"10115","city":"Berlin","country":"Deutschland","website":"https://acme.org"}'
-sent="$(api -X POST -d "{\"contact\":$contact,\"company\":{\"mode\":\"none\"}}" "$base7/api/sessions/$session_id/send")"
+sent="$(api -X POST -d "{\"contact\":$contact,\"company\":{\"mode\":\"none\"},\"preferences\":{\"newsletter\":true}}" "$base7/api/sessions/$session_id/send")"
 check "the send succeeds with a demo record id" grep -Eq '"person_id":"9[0-9]+"' <<<"$sent"
 check "the preview holds the person and its email, phone, address and website records" \
   bash -c 'for k in "\"person\"" "\"emails\"" "\"phones\"" "\"addresses\"" "\"websites\""; do grep -q "$k" <<<"$1" || exit 1; done' _ "$sent"
 check "the preview links the details to the new person" grep -q '"fb_person_id":9' <<<"$sent"
+check "the ticked newsletter option is in the preview and no contact flag is" \
+  bash -c 'grep -q "\"wants_newsletter\":true" <<<"$1" && ! grep -q "wants_no_" <<<"$1"' _ "$sent"
 check "no contact data is left in the preview's info text" bash -c '! grep -q "Email:" <<<"$1"' _ "$sent"
 kill "$stub_pid" 2>/dev/null
 rm -rf "$stub_dir"

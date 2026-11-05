@@ -39,7 +39,7 @@ Allow about half a day, spread over several days.
    one record per detail. A real send to FundraisingBox has been tried once with a test card, but
    the demo stays in mock mode, so tell the NGO the connection is shown with a stand-in.
 4. **Rehearse on your own machine (about 1 hour).** Run `bash scripts/smoke-container.sh`
-   (builds the image and runs 42 checks). Then open `http://<your-laptop-address>:8080` on your phone
+   (builds the image and runs 43 checks). Then open `http://<your-laptop-address>:8080` on your phone
    on the same Wi-Fi and scan a card with the camera. For plain http locally, set
    `AUTH_COOKIE_SECURE=false` in `.env`. Check Android and iPhone if you can, and whether iPhone photos
    work (task 6.3).

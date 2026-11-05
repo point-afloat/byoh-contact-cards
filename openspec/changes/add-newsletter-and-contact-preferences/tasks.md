@@ -15,8 +15,8 @@
 
 ## 3. Docs and final checks
 
-- [ ] 3.1 Document the options for staff (what each one means, that nothing is pre-ticked, that a card is not consent, that choices are not applied after a partial failure) in the admin or demo docs. Verify with `frontend/src/docs.test.ts` and a read-through. (files: docs/admin-guide.md)
-- [ ] 3.2 Run everything: `uv run pytest -q`, `uv run ruff check .`, `uv run mypy app`, `npm test` and `npm run api:check` in `frontend/`, and the mock-mode check in `scripts/smoke-container.sh` extended to send with the newsletter ticked. Verify all pass. (files: scripts/smoke-container.sh)
+- [x] 3.1 Document the options for staff (what each one means, that nothing is pre-ticked, that a card is not consent, that choices are not applied after a partial failure) in the admin or demo docs. Verify with `frontend/src/docs.test.ts` and a read-through. (files: docs/admin-guide.md)
+- [x] 3.2 Run everything: `uv run pytest -q`, `uv run ruff check .`, `uv run mypy app`, `npm test` and `npm run api:check` in `frontend/`, and the mock-mode check in `scripts/smoke-container.sh` extended to send with the newsletter ticked. Verify all pass. (files: scripts/smoke-container.sh)
 - [ ] 3.3 Checkpoint: owner reviews and commits this group (tasks 3.1 to 3.2)
 
 ## Workflow follow-up

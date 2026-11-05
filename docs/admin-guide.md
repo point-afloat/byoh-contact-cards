@@ -81,6 +81,19 @@ last resort, you can start again from the first-administrator settings:
 The app ignores those two settings whenever any account exists, so leaving them set does no harm,
 but the password should not stay in the settings longer than necessary.
 
+## Newsletter and contact options
+
+On the review page, under **Communication**, four boxes record what the person agreed to:
+newsletter, contact by email, by phone and by post. None is ticked to begin with, and the app
+never ticks one from the card: handing over a business card is not consent. Tick a box only when
+the person told you so. A ticked box is written to the person's record in FundraisingBox; an unticked
+box sends nothing, so FundraisingBox keeps whatever it has. The boxes are not remembered if you
+reload the page.
+
+If a send fails part way, the person already exists in FundraisingBox. Changing the boxes (or the
+name or company) and sending again does not change that existing record; fix those in
+FundraisingBox itself.
+
 ## What the app does not do
 
 - It does not send emails (invitations and reset links are shared by you).
