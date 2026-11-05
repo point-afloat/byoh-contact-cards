@@ -105,8 +105,8 @@ def test_detail_records_use_the_documented_fields() -> None:
         "url": "https://acme.org",
         "type": "work",
         "website_type": "homepage",
-        "is_main": True,
     }
+    assert "is_main" not in website_payload(7, FULL)  # the live API rejects it
 
 
 def test_an_address_without_a_known_country_has_no_country() -> None:

@@ -157,5 +157,4 @@ def website_payload(owner_id: int, contact: Contact) -> dict[str, Any]:
         "url": contact.website,
         "type": WORK,
         "website_type": WEBSITE_TYPE,
-        "is_main": True,
-    }
+    }  # personWebsites has no is_main field: the live API rejects it as unknown
