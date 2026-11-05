@@ -52,7 +52,8 @@ no `ARG`s. Mark every secret as **secret** so its value is hidden after saving.
 |---|---|
 | `LLM_MODEL` | the model chosen for your cards |
 | `LLM_API_KEY` | your model provider's key (**secret**) |
-| `FUNDRAISINGBOX_APITOKEN` | the FundraisingBox API token (**secret**) |
+| `FUNDRAISINGBOX_MODE` | `live` (the default) sends to FundraisingBox; `mock` sends nothing and needs no token (demos and tests) |
+| `FUNDRAISINGBOX_APITOKEN` | the FundraisingBox API token (**secret**), needed only in `live` mode |
 | `LLM_BASE_URL`, `LLM_RESPONSE_FORMAT`, `UPLOAD_MAX_BYTES`, ... | only if you need to change the defaults |
 | `SLIPLANE_USER_ID` | `10001` (the user the container runs as) |
 | `SLIPLANE_GROUP_ID` | `10001` |
@@ -75,6 +76,12 @@ visitor's address in `X-Forwarded-For`. While it is off, sign-in throttling sees
 coming from the proxy's address, so many failed sign-ins from anywhere can pause sign-in for
 everyone for a few minutes (the per-email limit keeps working either way). Setting it to `true`
 without a proxy in front lets visitors fake their address.
+
+**Go-live checklist (leaving mock mode).** Set `FUNDRAISINGBOX_MODE=live` and add the
+`FUNDRAISINGBOX_APITOKEN`, then redeploy. While the mode is `mock`, a banner on every page says
+nothing is sent. The first live send creates a person and one record per detail (email, phone,
+address, website): open that person in FundraisingBox and check the records and the ContactPilot
+field before trusting it.
 
 ### 4. Health check and volume
 

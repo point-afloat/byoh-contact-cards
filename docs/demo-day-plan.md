@@ -18,7 +18,7 @@ whether the service gets an HTTPS address. The plan has a fallback if any of the
 
 | Decision | Options | Recommendation |
 |---|---|---|
-| FundraisingBox during the demo | Mock it, a test account, or the real account | **Mock it** (decided). This needs the `add-fundraisingbox-mock-mode` change to be built first. Until it is, the app has no dry-run mode, and every send would create a real person (and possibly a company) in whatever account the token belongs to. In mock mode nothing is sent, no token is needed, and the app says so on every page. |
+| FundraisingBox during the demo | Mock it, a test account, or the real account | **Mock it** (decided, and built). Set `FUNDRAISINGBOX_MODE=mock`: nothing is sent, no token is needed, and the app says so on every page. Without it every send would create a real person (and records for email, phone, address and website) in whatever account the token belongs to. |
 | Cards for the demo | The NGO's real cards, or your own test cards | Your own: 3 printed and 2 handwritten cards with invented people. Card images go to Mistral's hosted API, so avoid real donors' data until the NGO has agreed to that. |
 | Model | Which cheap Mistral vision model | Decided by the 10-card test in step 2 below (task 2.4 of `build-contact-card-importer`). |
 | After the 48 hours | Let it expire, or keep it | Decide by about hour 36 (see section 4). |
@@ -35,11 +35,11 @@ Allow about half a day, spread over several days.
    with the cheapest candidate vision models. Note cost and accuracy per field. Set `LLM_MODEL`.
 3. **Try every send case in mock mode (about 30 min).** Set `FUNDRAISINGBOX_MODE=mock` and send
    one card for each case: person only, person linked to an example company, person with a new
-   company, and a company-only card. The done screen shows what would have been sent. Real
-   FundraisingBox is not tried yet (task 3.4 stays open), so tell the NGO the connection is shown
-   with a stand-in.
+   company, and a company-only card. The done screen shows what would have been sent: the person and
+   one record per detail. A real send to FundraisingBox has been tried once with a test card, but
+   the demo stays in mock mode, so tell the NGO the connection is shown with a stand-in.
 4. **Rehearse on your own machine (about 1 hour).** Run `bash scripts/smoke-container.sh`
-   (builds the image and runs 34 checks). Then open `http://<your-laptop-address>:8080` on your phone
+   (builds the image and runs 42 checks). Then open `http://<your-laptop-address>:8080` on your phone
    on the same Wi-Fi and scan a card with the camera. For plain http locally, set
    `AUTH_COOKIE_SECURE=false` in `.env`. Check Android and iPhone if you can, and whether iPhone photos
    work (task 6.3).
@@ -117,6 +117,7 @@ are signed out at once; explain what stays on the server (accounts only, never c
   exactly one hop (step 9 checks it).
 - That `SLIPLANE_USER_ID` and `SLIPLANE_GROUP_ID` make the volume writable for the container user.
 - That the chosen Mistral model accepts structured output with an image (task 2.4 settles it).
-- That the mock-mode change is built and verified before the day (it is planned, not built yet).
-- That the real FundraisingBox connection works: it is deliberately not tested in this demo, so
-  before real use set `FUNDRAISINGBOX_MODE=live`, add the token and run task 3.4.
+- That mock mode behaves as in `scripts/smoke-container.sh` and the browser run recorded below.
+- That the real FundraisingBox connection works for every case: it is deliberately not part of this
+  demo, so before real use set `FUNDRAISINGBOX_MODE=live`, add the token and check a send in
+  FundraisingBox itself.

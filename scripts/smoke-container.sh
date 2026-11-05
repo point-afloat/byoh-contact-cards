@@ -14,6 +14,7 @@ project="$(cd "$here/.." && pwd)"
 image="${IMAGE:-contact-card-importer:smoke}"
 suffix="$$"
 volume="smoke-data-$suffix"
+mock_volume="smoke-mock-$suffix"
 empty_volume="smoke-empty-$suffix"
 jar="$(mktemp)"
 jar2="$(mktemp)" # the invited colleague's own browser
@@ -27,9 +28,11 @@ app_env=(-e LLM_MODEL=smoke-model -e "LLM_API_KEY=$SECRET_LLM" -e "FUNDRAISINGBO
 good_env=("${app_env[@]}" -e INITIAL_ADMIN_EMAIL=admin@example.org -e "INITIAL_ADMIN_PASSWORD=$SECRET_ADMIN")
 
 # Containers are labelled, so cleanup finds them even though start() runs in a subshell.
+stub_pid=""
 cleanup() {
+  [ -n "$stub_pid" ] && kill "$stub_pid" 2>/dev/null
   docker ps -aq --filter "label=smoke-run=$suffix" | xargs -r docker rm -f >/dev/null 2>&1
-  docker volume rm -f "$volume" "$empty_volume" >/dev/null 2>&1
+  docker volume rm -f "$volume" "$empty_volume" "$mock_volume" >/dev/null 2>&1
   rm -f "$jar" "$jar2"
 }
 trap cleanup EXIT
@@ -164,6 +167,65 @@ check "the log names the first-admin settings" \
 c5="$(start rodata 8080 "${good_env[@]}" -v "$volume:/data:ro")"
 check "a read-only /data makes the health check 503" wait_for_status "http://127.0.0.1:$(host_port "$c5" 8080)/api/health" 503 30
 check "the log says /data is not writable" bash -c 'docker logs "$1" 2>&1 | grep -q "not writable"' _ "$c5"
+
+# --- 6. Mock mode with no FundraisingBox token: healthy, says so, sends nothing out -----------
+# A stand-in model endpoint on this machine returns a fixed card, so no model key is needed.
+stub_dir="$(mktemp -d)"
+cat >"$stub_dir/stub.py" <<'PY'
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+CARD = {"salutation": "Frau", "title": "", "first_name": "Anna", "last_name": "Meier",
+        "company": "Acme GmbH", "position": "Leiterin", "email": "anna@acme.org",
+        "phone": "+49 30 1234", "mobile": "", "street": "Hauptstr. 1", "postal_code": "10115",
+        "city": "Berlin", "country": "Deutschland", "website": "https://acme.org", "notes": ""}
+
+class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("content-length", 0)))
+        body = json.dumps({"choices": [{"message": {"content": json.dumps(CARD)}}]}).encode()
+        self.send_response(200)
+        self.send_header("content-type", "application/json")
+        self.send_header("content-length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def log_message(self, *args):
+        pass
+
+server = HTTPServer(("0.0.0.0", 0), Handler)
+print(server.server_address[1], flush=True)
+server.serve_forever()
+PY
+python3 "$stub_dir/stub.py" >"$stub_dir/port" &
+stub_pid=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$stub_dir/port" ] && break; sleep 0.3; done
+stub_port="$(cat "$stub_dir/port")"
+base64 -d >"$stub_dir/card.jpg" <<'B64'
+/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABsSFBcUERsXFhceHBsgKEIrKCUlKFE6PTBCYFVlZF9VXVtqeJmBanGQc1tdhbWGkJ6jq62rZ4C8ybqmx5moq6T/2wBDARweHigjKE4rK06kbl1upKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKT/wAARCABQAHgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDVooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//Z
+B64
+
+mock_env=(-e LLM_MODEL=smoke-model -e LLM_API_KEY=dummy -e "LLM_BASE_URL=http://host.docker.internal:$stub_port/v1"
+  -e FUNDRAISINGBOX_MODE=mock -e AUTH_COOKIE_SECURE=false
+  -e INITIAL_ADMIN_EMAIL=admin@example.org -e "INITIAL_ADMIN_PASSWORD=$SECRET_ADMIN")
+c7="$(start mock 8080 "${mock_env[@]}" --add-host host.docker.internal:host-gateway -v "$mock_volume:/data")"
+base7="http://127.0.0.1:$(host_port "$c7" 8080)"
+check "mock mode with no FundraisingBox token is healthy" wait_for_status "$base7/api/health" 200 30
+check "the health response says it is mock" grep -q '"fundraisingbox":"mock"' <<<"$(curl -s "$base7/api/health")"
+: >"$jar"
+api -o /dev/null -X POST -d "{\"email\":\"admin@example.org\",\"password\":\"$SECRET_ADMIN\"}" "$base7/api/auth/login"
+check "the app reports mock mode to a signed-in user" grep -q '"fundraisingbox_mode":"mock"' <<<"$(api "$base7/api/app-info")"
+session="$(curl -s -b "$jar" -H 'X-Requested-With: smoke' -F "file=@$stub_dir/card.jpg;type=image/jpeg" "$base7/api/sessions")"
+session_id="$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' <<<"$session")"
+check "a card can be scanned (stand-in model)" test -n "$session_id"
+contact='{"first_name":"Anna","last_name":"Meier","company":"Acme GmbH","email":"anna@acme.org","phone":"+49 30 1234","street":"Hauptstr. 1","postal_code":"10115","city":"Berlin","country":"Deutschland","website":"https://acme.org"}'
+sent="$(api -X POST -d "{\"contact\":$contact,\"company\":{\"mode\":\"none\"}}" "$base7/api/sessions/$session_id/send")"
+check "the send succeeds with a demo record id" grep -Eq '"person_id":"9[0-9]+"' <<<"$sent"
+check "the preview holds the person and its email, phone, address and website records" \
+  bash -c 'for k in "\"person\"" "\"emails\"" "\"phones\"" "\"addresses\"" "\"websites\""; do grep -q "$k" <<<"$1" || exit 1; done' _ "$sent"
+check "the preview links the details to the new person" grep -q '"fb_person_id":9' <<<"$sent"
+check "no contact data is left in the preview's info text" bash -c '! grep -q "Email:" <<<"$1"' _ "$sent"
+kill "$stub_pid" 2>/dev/null
+rm -rf "$stub_dir"
 
 echo
 if [ "$failures" -eq 0 ]; then echo "All smoke checks passed."; else echo "$failures check(s) failed."; exit 1; fi
