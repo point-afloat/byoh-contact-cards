@@ -61,15 +61,16 @@ administrator guide ([admin guide](admin-guide.md)), and charge your phone.
 | Step | What to do | Done when |
 |---|---|---|
 | 1 | Create the demo server, then **Deploy Service** from the GitHub repository (Dockerfile `/Dockerfile`, context `/`). | The build starts. If the demo server has no volume option, skip step 3 and note that accounts will not survive a redeploy. |
-| 2 | Set the environment variables from the runbook, with the secret ones marked **secret**: `LLM_MODEL`, `LLM_API_KEY`, `FUNDRAISINGBOX_MODE=mock` (no FundraisingBox token needed), `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `SLIPLANE_USER_ID=10001`, `SLIPLANE_GROUP_ID=10001`. Leave `TRUSTED_PROXY` unset. | All set. |
+| 2 | Set the environment variables from the runbook, with the secret ones marked **secret**: `LLM_MODEL`, `LLM_API_KEY`, `FUNDRAISINGBOX_MODE=mock` (no FundraisingBox token needed), `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `SLIPLANE_USER_ID=10001`, `SLIPLANE_GROUP_ID=10001`. Leave `TRUSTED_PROXY` unset until step 9 passes. | All set. |
 | 3 | Attach a volume at `/data`. Set the health check route to `/api/health`. | Redeploy finishes. |
 | 4 | Open the service address. Without signing in you must see only the sign-in page, and `https://<address>/api/auth/me` must answer `401`. | Confirmed. |
 | 5 | Sign in as the first administrator. Open **Account** and change the password. Then **remove `INITIAL_ADMIN_PASSWORD`** from the service and redeploy. | Signed in with the new password after the redeploy. |
 | 6 | Open **Users** and invite a second person (your own other address). Open the link on a second device and choose a password. | The second person is signed in. |
 | 7 | On your phone, scan one test card with the camera and send it. | The page shows the demo notice, and the done screen says nothing was sent and shows the data that would have been sent. |
 | 8 | Redeploy once. | Both users can still sign in (this proves the volume works). |
+| 9 | Check that sign-in throttling sees real visitor addresses (needs the `harden-login-and-requests` change). Use a **made-up email**, never a real user's: run `for i in 1 2 3 4 5 6; do curl -s -o /dev/null -w "%{http_code}\n" -X POST https://<address>/api/auth/login -H 'Content-Type: application/json' -H "X-Forwarded-For: 10.0.0.$i" -d '{"email":"probe@example.invalid","password":"wrong-password-123"}'; done` once with `TRUSTED_PROXY=true`. Then send the same request from your phone on mobile data (not Wi-Fi). | The laptop shows `401` five times, then `429`, and the phone gets `401`, not `429`. If the laptop never reaches `429` the proxy passes forged addresses through. If the phone also gets `429` the proxy adds more than one hop. In either case set `TRUSTED_PROXY` back to `false`. To repeat the test, wait 10 minutes or use another made-up email. |
 
-If steps 1 to 8 take longer than 45 minutes, switch to Plan B for the appointment and carry on
+If steps 1 to 9 take longer than 45 minutes, switch to Plan B for the appointment and carry on
 debugging afterwards.
 
 **Demo script (about 15 minutes):** sign in; scan a printed card and a handwritten one with the
@@ -112,6 +113,8 @@ are signed out at once; explain what stays on the server (accounts only, never c
 
 - That a demo server accepts GitHub deploys, volumes and a health check route.
 - That the service address is served over HTTPS.
+- That Sliplane's proxy adds the visitor's address as the last `X-Forwarded-For` entry and adds
+  exactly one hop (step 9 checks it).
 - That `SLIPLANE_USER_ID` and `SLIPLANE_GROUP_ID` make the volume writable for the container user.
 - That the chosen Mistral model accepts structured output with an image (task 2.4 settles it).
 - That the mock-mode change is built and verified before the day (it is planned, not built yet).
