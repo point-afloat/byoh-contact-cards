@@ -20,7 +20,8 @@ export const strings = {
   review: {
     heading: "Review the contact",
     imageAlt: "The scanned contact card",
-    intro: "Check the values against the card and correct anything that is wrong.",
+    intro:
+      "Check the values against the card and correct anything that is wrong.",
     notFound: "Not found on the card",
     send: "Send to FundraisingBox",
     sections: {
@@ -56,17 +57,21 @@ export const strings = {
     legend: "FundraisingBox company",
     searching: "Searching FundraisingBox…",
     none: "Don't link, keep the company name as a note",
-    link: (name: string, city?: string | null) => (city ? `Link to ${name} (${city})` : `Link to ${name}`),
-    create: (name: string) => `Create the company "${name}" in FundraisingBox and link the contact`,
+    link: (name: string, city?: string | null) =>
+      city ? `Link to ${name} (${city})` : `Link to ${name}`,
+    create: (name: string) =>
+      `Create the company "${name}" in FundraisingBox and link the contact`,
     noMatch: "No matching company found in FundraisingBox.",
-    searchFailed: "The company search is unavailable. You can still send without a company link.",
+    searchFailed:
+      "The company search is unavailable. You can still send without a company link.",
     companyOnlyNote:
       "There is no last name, so only the company will be created and no person.",
     mayExist: "A company with a similar name may already exist:",
   },
   send: {
     sending: "Sending…",
-    failed: "Sending failed. Your entries are kept, so you can fix the problem and try again.",
+    failed:
+      "Sending failed. Your entries are kept, so you can fix the problem and try again.",
   },
   mock: {
     label: "Mock mode",
@@ -79,8 +84,10 @@ export const strings = {
       `This contact was not sent to FundraisingBox. It was a demo record${id ? ` (ID ${id})` : ""}.`,
     mockPayloadSummary: "Show what would have been sent",
     heading: "Sent to FundraisingBox",
-    person: (id: string | null | undefined) => `The person was created${id ? ` (ID ${id})` : ""}.`,
-    company: (id: string | null | undefined) => `The company was created${id ? ` (ID ${id})` : ""}.`,
+    person: (id: string | null | undefined) =>
+      `The person was created${id ? ` (ID ${id})` : ""}.`,
+    company: (id: string | null | undefined) =>
+      `The company was created${id ? ` (ID ${id})` : ""}.`,
     next: "Scan next card",
   },
   nav: {
@@ -96,6 +103,8 @@ export const strings = {
     signInHeading: "Sign in",
     email: "Email",
     password: "Password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     signIn: "Sign in",
     signingIn: "Signing in…",
     expiredHeading: "Your session expired",
@@ -105,7 +114,10 @@ export const strings = {
     heading: "Account",
     emailLabel: "Email",
     roleLabel: "Role",
-    roles: { admin: "Administrator", member: "Member" } as Record<string, string>,
+    roles: { admin: "Administrator", member: "Member" } as Record<
+      string,
+      string
+    >,
     changeHeading: "Change password",
     current: "Current password",
     next: "New password",
@@ -130,7 +142,8 @@ export const strings = {
     submitReset: "Save password and sign in",
     saving: "Saving…",
     invalidHeading: "This link is no longer valid",
-    invalidText: "It may have been used already or may have expired. Ask an administrator for a new one.",
+    invalidText:
+      "It may have been used already or may have expired. Ask an administrator for a new one.",
     toSignIn: "Go to sign in",
     retry: "Try again",
     mismatch: "The two passwords do not match.",
@@ -138,7 +151,8 @@ export const strings = {
   },
   users: {
     heading: "Users",
-    intro: "Invite colleagues, and switch people off when they leave. Nobody needs a developer for this.",
+    intro:
+      "Invite colleagues, and switch people off when they leave. Nobody needs a developer for this.",
     invite: "Invite a user",
     listLabel: "All users",
     loadFailed: "The users could not be loaded.",
@@ -146,13 +160,17 @@ export const strings = {
     you: "(you)",
     role: "Role",
     roleFor: "for",
-    roles: { admin: "Administrator", member: "Member" } as Record<string, string>,
+    roles: { admin: "Administrator", member: "Member" } as Record<
+      string,
+      string
+    >,
     lastSignIn: "Last sign-in",
     neverSignedIn: "Has not signed in yet",
     status: {
       active: "Active",
       inactive: "Deactivated",
-      pending: (until: string) => `Invitation pending, link valid until ${until}`,
+      pending: (until: string) =>
+        `Invitation pending, link valid until ${until}`,
       expired: (since: string) => `Invitation expired on ${since}`,
     },
     actions: {
@@ -164,7 +182,8 @@ export const strings = {
     },
     notices: {
       roleChanged: (email: string, role: string) => `${email} is now ${role}.`,
-      deactivated: (email: string) => `${email} was deactivated and signed out.`,
+      deactivated: (email: string) =>
+        `${email} was deactivated and signed out.`,
       reactivated: (email: string) => `${email} can sign in again.`,
       revoked: (email: string) => `The invitation for ${email} was withdrawn.`,
     },
@@ -188,12 +207,15 @@ export const strings = {
     },
     confirm: {
       deactivateHeading: (email: string) => `Deactivate ${email}?`,
-      deactivateText: "They are signed out immediately and cannot sign in until you reactivate them.",
+      deactivateText:
+        "They are signed out immediately and cannot sign in until you reactivate them.",
       revokeHeading: (email: string) => `Withdraw the invitation for ${email}?`,
-      revokeText: "The link stops working and the address can be invited again later.",
+      revokeText:
+        "The link stops working and the address can be invited again later.",
       cancel: "Cancel",
     },
   },
   genericError: "Something went wrong. Please try again.",
-  networkError: "The server could not be reached. Please check your connection and try again.",
+  networkError:
+    "The server could not be reached. Please check your connection and try again.",
 } as const;
