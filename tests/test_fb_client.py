@@ -47,7 +47,7 @@ def test_create_company_returns_id_and_sends_company_payload() -> None:
     route = respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 90}))
     assert make_client().create_company("Acme GmbH").id == 90
     body = json.loads(route.calls.last.request.content)
-    assert body["is_company"] is True and body["company_name"] == "Acme GmbH"
+    assert body == {"is_company": True, "company_name": "Acme GmbH"}
 
 
 @respx.mock

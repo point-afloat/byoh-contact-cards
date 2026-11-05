@@ -360,7 +360,6 @@ def test_a_mock_company_only_send_returns_the_company_payload(
         "company": {
             "is_company": True,
             "company_name": "Neu & Gut e.V.",
-            "last_name": "Neu & Gut e.V.",
         }
     }
 

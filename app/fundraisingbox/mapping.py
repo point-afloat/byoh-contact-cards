@@ -27,7 +27,6 @@ LIMITS: dict[str, int] = {
     "city": 100,
     "website": 1000,
 }
-COMPANY_LAST_NAME_MAX = 100
 
 WORK = "work"
 MOBILE_TYPE = "other"  # the documented create enum has home, work, other only
@@ -114,14 +113,11 @@ def person_payload(
 def company_payload(name: str) -> dict[str, Any]:
     """Body for creating a company record.
 
-    UNVERIFIED against a live account: the API requires `last_name` on every record and
-    documents `company_name` only for `is_company=true`. The last name is cut to its limit.
+    The documented `last_name` applies only when `is_company` is false, and the live API
+    rejects it for a company as `not_editable`, so a company carries `company_name` only.
+    The name limit is checked locally (see LIMITS["company"]).
     """
-    return {
-        "is_company": True,
-        "company_name": name,
-        "last_name": name[:COMPANY_LAST_NAME_MAX],
-    }
+    return {"is_company": True, "company_name": name}
 
 
 def email_payload(owner_id: int, contact: Contact) -> dict[str, Any]:

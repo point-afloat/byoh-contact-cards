@@ -83,7 +83,7 @@ half-created person; this change takes that risk on purpose and handles it (deci
 7. **Company-only cards attach details to the company.** The company record is the only record
    that exists, so the contact details belong to it. When a company is created for a person, the
    details stay with the person (they are the person's card details); the company record gets no
-   details. The company's required `last_name` is the name cut to 100 characters; `company_name`
+   details. The company body has no `last_name` (the API documents it only for `is_company=false` and refuses it for a company as `not_editable`); `company_name`
    is the full name (limit 1000, also checked).
 
 8. **ContactPilot custom field as documented.** `{"id": 16786, "value": "Sync"}`: the id as a number

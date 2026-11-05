@@ -150,9 +150,9 @@ def test_a_valid_contact_passes() -> None:
     assert limit_errors(FULL, note_company=True) == {}
 
 
-def test_a_long_company_name_is_cut_for_the_required_last_name_only() -> None:
-    body = company_payload("A" * 150)
-    assert len(body["last_name"]) == 100 and body["company_name"] == "A" * 150
+def test_a_company_carries_no_last_name_because_the_live_api_refuses_it() -> None:
+    assert "last_name" not in company_payload("Acme GmbH")
+    assert "company" in limit_errors(Contact(company="A" * 1001))
 
 
 @pytest.mark.parametrize(
@@ -178,5 +178,4 @@ def test_company_payload_shape() -> None:
     assert company_payload("Acme GmbH") == {
         "is_company": True,
         "company_name": "Acme GmbH",
-        "last_name": "Acme GmbH",
     }

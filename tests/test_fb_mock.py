@@ -58,7 +58,7 @@ def test_it_uses_the_real_mapping_and_hands_the_payload_back() -> None:
     assert "Email" not in person.payload.get("info", "")  # the email is a record of its own
     assert person.payload["fb_custom_fields"] == [CONTACTPILOT_CUSTOM_FIELD]
     company = mock.create_company("Neu")
-    assert company.payload == {"is_company": True, "company_name": "Neu", "last_name": "Neu"}
+    assert company.payload == {"is_company": True, "company_name": "Neu"}
 
 
 def test_detail_records_get_ids_and_hand_back_the_payload() -> None:
