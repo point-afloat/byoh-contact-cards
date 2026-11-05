@@ -37,6 +37,10 @@ class Session:
     record_type: str | None = None  # "person" or "company", once sent
     created_company: tuple[str, int] | None = None  # (name, id) created by an earlier attempt
     created_company_payload: dict[str, Any] | None = field(default=None, repr=False)
+    # Resume state of a partly failed send: the person created so far (id, payload) and the
+    # payload of every finished detail step. Memory only, ends with the session.
+    created_person: tuple[int, dict[str, Any]] | None = field(default=None, repr=False)
+    finished_steps: dict[str, dict[str, Any]] = field(default_factory=dict, repr=False)
     # Mock mode only: what would have been sent to FundraisingBox. Memory only, ends with the
     # session, never written to the database or the logs.
     demo_payload: dict[str, Any] | None = field(default=None, repr=False)

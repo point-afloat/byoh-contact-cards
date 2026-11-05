@@ -2,10 +2,8 @@
 
 from pathlib import Path
 
-import pytest
 import respx
 
-from app.api_errors import ApiError
 from app.contact import Contact
 from app.fundraisingbox.client import FundraisingBoxClient
 from app.fundraisingbox.mapping import CONTACTPILOT_CUSTOM_FIELD
@@ -57,20 +55,23 @@ def test_it_uses_the_real_mapping_and_hands_the_payload_back() -> None:
     mock = MockFundraisingBox()
     person = mock.create_person(ANNA, company_id=900001)
     assert person.payload["last_name"] == "Meier" and person.payload["company_id"] == 900001
-    assert "Email: a@acme.org" in person.payload["info"]
+    assert "Email" not in person.payload.get("info", "")  # the email is a record of its own
     assert person.payload["fb_custom_fields"] == [CONTACTPILOT_CUSTOM_FIELD]
     company = mock.create_company("Neu")
     assert company.payload == {"is_company": True, "company_name": "Neu", "last_name": "Neu"}
 
 
-def test_a_contact_live_would_refuse_is_refused_and_records_nothing() -> None:
+def test_detail_records_get_ids_and_hand_back_the_payload() -> None:
     mock = MockFundraisingBox()
-    too_long = Contact(last_name="Meier", notes="x" * 2000)
-    with pytest.raises(ApiError) as exc:
-        mock.create_person(too_long)
-    assert exc.value.code == "info_too_long"
-    # nothing was recorded: the next record gets the very next identifier
-    assert mock.create_person(ANNA).id == FIRST_ID + 3
+    person = mock.create_person(ANNA)
+    email = mock.add_email(person.id, ANNA)
+    phone = mock.add_phone(person.id, "123", mobile=True, is_main=False)
+    address = mock.add_address(person.id, Contact(last_name="M", city="Bern", country="Schweiz"))
+    website = mock.add_website(person.id, Contact(last_name="M", website="https://a.org"))
+    assert len({person.id, email.id, phone.id, address.id, website.id}) == 5
+    assert email.payload["fb_person_id"] == person.id and email.payload["email"] == "a@acme.org"
+    assert phone.payload["type"] == "other" and address.payload["country"] == "CH"
+    assert website.payload["url"] == "https://a.org"
 
 
 def test_it_never_makes_a_network_request() -> None:

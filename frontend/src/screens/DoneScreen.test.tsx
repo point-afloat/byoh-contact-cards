@@ -35,10 +35,12 @@ test("offers to scan the next card", async () => {
 });
 
 const PAYLOAD = {
-  last_name: "Meier",
-  first_name: "Anna",
-  info: "Email: anna@acme.org",
-  fb_custom_fields: [{ id: "16786", name: "ContactPilot", value: "Sync" }],
+  person: {
+    last_name: "Meier",
+    first_name: "Anna",
+    fb_custom_fields: [{ id: 16786, value: "Sync" }],
+  },
+  emails: [{ fb_person_id: 900004, email: "anna@acme.org", type: "work", is_main: true }],
 };
 const demo = () => sent({ person_id: "900004", demo_payload: PAYLOAD });
 
@@ -60,8 +62,8 @@ test("in mock mode the data that would have been sent can be opened and read", a
   expect(details).toHaveAttribute("open");
   const text = details?.querySelector("pre")?.textContent ?? "";
   expect(JSON.parse(text)).toEqual(PAYLOAD);
-  expect(text).toContain("ContactPilot");
-  expect(text).toContain("Email: anna@acme.org");
+  expect(text).toContain("16786");
+  expect(text).toContain('"email": "anna@acme.org"');
 });
 
 test("in live mode there is no payload and no extra text", () => {

@@ -11,7 +11,14 @@ from dataclasses import dataclass
 
 from app.contact import Contact
 from app.fundraisingbox.client import CompanyMatch, CreatedRecord
-from app.fundraisingbox.mapping import company_payload, person_payload
+from app.fundraisingbox.mapping import (
+    address_payload,
+    company_payload,
+    email_payload,
+    person_payload,
+    phone_payload,
+    website_payload,
+)
 
 FIRST_ID = 900001  # recognisably not a real FundraisingBox id
 
@@ -65,3 +72,22 @@ class MockFundraisingBox:
         with self._lock:  # the payload is built first: a refused contact uses up no id
             identifier = self._take_id()
         return CreatedRecord(id=identifier, payload=payload)
+
+    def _record(self, payload: dict[str, object]) -> CreatedRecord:
+        with self._lock:
+            identifier = self._take_id()
+        return CreatedRecord(id=identifier, payload=dict(payload))
+
+    def add_email(self, owner_id: int, contact: Contact) -> CreatedRecord:
+        return self._record(email_payload(owner_id, contact))
+
+    def add_phone(
+        self, owner_id: int, number: str, *, mobile: bool = False, is_main: bool = True
+    ) -> CreatedRecord:
+        return self._record(phone_payload(owner_id, number, mobile=mobile, is_main=is_main))
+
+    def add_address(self, owner_id: int, contact: Contact) -> CreatedRecord:
+        return self._record(address_payload(owner_id, contact))
+
+    def add_website(self, owner_id: int, contact: Contact) -> CreatedRecord:
+        return self._record(website_payload(owner_id, contact))

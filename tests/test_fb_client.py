@@ -139,3 +139,24 @@ def test_token_and_contact_data_never_reach_logs_or_messages(
         make_client().create_person(CONTACT)
     assert TOKEN not in caplog.text and TOKEN not in str(exc.value)
     assert "private.example" not in caplog.text
+
+
+# ---- detail records ------------------------------------------------------------------------------
+def test_each_detail_call_posts_to_its_own_url_with_the_token_and_returns_the_id() -> None:
+    from app.fundraisingbox import client as fb
+
+    contact = Contact(last_name="M", email="a@b.org", city="Bern", website="https://a.org")
+    calls = {
+        fb.EMAILS_URL: lambda c: c.add_email(5, contact),
+        fb.PHONES_URL: lambda c: c.add_phone(5, "123"),
+        fb.ADDRESSES_URL: lambda c: c.add_address(5, contact),
+        fb.WEBSITES_URL: lambda c: c.add_website(5, contact),
+    }
+    for url, call in calls.items():
+        with respx.mock:
+            route = respx.post(url).mock(return_value=httpx.Response(201, json={"id": 42}))
+            created = call(make_client())
+        assert created.id == 42
+        request = route.calls[0].request
+        assert request.headers["authorization"].startswith("Basic ")
+        assert json.loads(request.content)["fb_person_id"] == 5

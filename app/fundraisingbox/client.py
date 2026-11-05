@@ -12,11 +12,23 @@ import httpx
 
 from app.config import Settings, require_fundraisingbox_token
 from app.contact import Contact
-from app.fundraisingbox.mapping import company_payload, person_payload
+from app.fundraisingbox.mapping import (
+    address_payload,
+    company_payload,
+    email_payload,
+    person_payload,
+    phone_payload,
+    website_payload,
+)
 
 logger = logging.getLogger(__name__)
 
-PERSONS_URL = "https://api.fundraisingbox.com/v1/persons.json"
+API_URL = "https://api.fundraisingbox.com/v1"
+PERSONS_URL = f"{API_URL}/persons.json"
+EMAILS_URL = f"{API_URL}/personEmailAddresses.json"
+PHONES_URL = f"{API_URL}/personPhones.json"
+ADDRESSES_URL = f"{API_URL}/personAddresses.json"
+WEBSITES_URL = f"{API_URL}/personWebsites.json"
 TIMEOUT_SECONDS = 30
 MAX_ERROR_DETAIL = 300
 
@@ -66,7 +78,7 @@ class FundraisingBoxClient:
         """Find existing companies whose company name matches."""
         if not name.strip():
             return []
-        data = self._call("GET", params={"company": name, "perPage": limit})
+        data = self._call("GET", PERSONS_URL, params={"company": name, "perPage": limit})
         matches: list[CompanyMatch] = []
         for item in data.get("data", []) if isinstance(data, dict) else []:
             company_name = item.get("company_name")
@@ -77,20 +89,37 @@ class FundraisingBoxClient:
         return matches
 
     def create_company(self, name: str) -> CreatedRecord:
-        return self._created(self._call("POST", json=company_payload(name)))
+        return self._created(self._call("POST", PERSONS_URL, json=company_payload(name)))
 
     def create_person(
         self, contact: Contact, *, company_id: int | None = None, note_company: bool = False
     ) -> CreatedRecord:
         payload = person_payload(contact, company_id=company_id, note_company=note_company)
-        return self._created(self._call("POST", json=payload))
+        return self._created(self._call("POST", PERSONS_URL, json=payload))
 
-    def _call(self, method: str, **kwargs: Any) -> Any:
+    def add_email(self, owner_id: int, contact: Contact) -> CreatedRecord:
+        return self._created(self._call("POST", EMAILS_URL, json=email_payload(owner_id, contact)))
+
+    def add_phone(
+        self, owner_id: int, number: str, *, mobile: bool = False, is_main: bool = True
+    ) -> CreatedRecord:
+        body = phone_payload(owner_id, number, mobile=mobile, is_main=is_main)
+        return self._created(self._call("POST", PHONES_URL, json=body))
+
+    def add_address(self, owner_id: int, contact: Contact) -> CreatedRecord:
+        body = address_payload(owner_id, contact)
+        return self._created(self._call("POST", ADDRESSES_URL, json=body))
+
+    def add_website(self, owner_id: int, contact: Contact) -> CreatedRecord:
+        body = website_payload(owner_id, contact)
+        return self._created(self._call("POST", WEBSITES_URL, json=body))
+
+    def _call(self, method: str, url: str, **kwargs: Any) -> Any:
         token = require_fundraisingbox_token(self._settings)  # no request without a token
         try:
             response = self._client.request(
                 method,
-                PERSONS_URL,
+                url,
                 auth=(token, "X"),
                 headers={"accept": "application/json"},
                 **kwargs,

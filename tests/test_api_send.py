@@ -9,7 +9,7 @@ import respx
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.fundraisingbox.client import PERSONS_URL
+from app.fundraisingbox.client import EMAILS_URL, PERSONS_URL, PHONES_URL
 from app.services import Services
 from tests.auth_helpers import make_services, running, sign_in, web_client
 
@@ -66,12 +66,20 @@ def send(
     return response
 
 
+def mock_details() -> tuple[respx.Route, respx.Route]:
+    """Routes for the email and phone records a CARD send creates after the person."""
+    email = respx.post(EMAILS_URL).mock(return_value=httpx.Response(201, json={"id": 501}))
+    phone = respx.post(PHONES_URL).mock(return_value=httpx.Response(201, json={"id": 502}))
+    return email, phone
+
+
 def fb_bodies(route: respx.Route) -> list[dict[str, object]]:
     return [json.loads(call.request.content) for call in route.calls]
 
 
 @respx.mock
 def test_success_creates_the_person_and_discards_card_data(client: TestClient) -> None:
+    email_route, phone_route = mock_details()
     route = respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 733}))
     session_id = open_session(client)
     res = send(client, session_id, CARD)
@@ -82,11 +90,17 @@ def test_success_creates_the_person_and_discards_card_data(client: TestClient) -
 
     (sent,) = fb_bodies(route)
     assert sent["last_name"] == "Meier" and sent["first_name"] == "Anna"
-    assert sent["fb_custom_fields"] == [{"id": "16786", "name": "ContactPilot", "value": "Sync"}]
-    info = str(sent["info"])
-    assert "Email: anna@acme.org" in info and "Phone: +49 30 1234" in info
-    assert "Company: Acme GmbH" in info  # not linked: kept as a note, like the prototype
+    assert sent["fb_custom_fields"] == [{"id": 16786, "value": "Sync"}]
+    info = str(sent.get("info", ""))
+    assert "Email" not in info and "Phone" not in info  # they are records of their own
+    assert "Company: Acme GmbH" in info  # not linked: kept as a note
     assert "company_name" not in sent and "company_id" not in sent
+    assert fb_bodies(email_route) == [
+        {"fb_person_id": 733, "email": "anna@acme.org", "type": "work", "is_main": True}
+    ]
+    assert fb_bodies(phone_route) == [
+        {"fb_person_id": 733, "phone": "+49 30 1234", "type": "work", "is_main": True}
+    ]
 
     assert client.get(f"/api/sessions/{session_id}/image").status_code == 410
 
@@ -101,16 +115,18 @@ def test_nothing_is_sent_until_confirmed(client: TestClient) -> None:
 
 @respx.mock
 def test_linking_an_existing_company_sends_company_id(client: TestClient) -> None:
+    mock_details()
     route = respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 5}))
     session_id = open_session(client)
     res = send(client, session_id, CARD, {"mode": "link", "id": 77})
     assert res.status_code == 200
     (sent,) = fb_bodies(route)
-    assert sent["company_id"] == 77 and "Company:" not in str(sent["info"])
+    assert sent["company_id"] == 77 and "Company:" not in str(sent.get("info", ""))
 
 
 @respx.mock
 def test_creating_a_company_creates_it_first_then_links_the_person(client: TestClient) -> None:
+    mock_details()
     route = respx.post(PERSONS_URL).mock(
         side_effect=[httpx.Response(201, json={"id": 90}), httpx.Response(201, json={"id": 91})]
     )
@@ -147,6 +163,7 @@ def test_company_only_card_without_creating_is_refused(client: TestClient) -> No
 
 @respx.mock
 def test_double_submit_creates_one_person(client: TestClient) -> None:
+    mock_details()
     route = respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 733}))
     session_id = open_session(client)
     assert send(client, session_id, CARD).status_code == 200
@@ -173,6 +190,7 @@ def test_concurrent_send_is_refused_while_one_is_in_flight(
 
 @respx.mock
 def test_api_error_keeps_the_data_and_a_retry_succeeds(client: TestClient) -> None:
+    mock_details()
     route = respx.post(PERSONS_URL).mock(
         side_effect=[
             httpx.Response(400, json={"first_name": ["not_editable"]}),
@@ -194,6 +212,7 @@ def test_api_error_keeps_the_data_and_a_retry_succeeds(client: TestClient) -> No
 
 @respx.mock
 def test_network_error_is_reported_and_retryable_without_reupload(client: TestClient) -> None:
+    mock_details()
     respx.post(PERSONS_URL).mock(
         side_effect=[httpx.ConnectError("down"), httpx.Response(201, json={"id": 2})]
     )
@@ -205,6 +224,7 @@ def test_network_error_is_reported_and_retryable_without_reupload(client: TestCl
 
 @respx.mock
 def test_retry_after_person_failure_does_not_create_the_company_twice(client: TestClient) -> None:
+    mock_details()
     route = respx.post(PERSONS_URL).mock(
         side_effect=[
             httpx.Response(201, json={"id": 90}),  # company
@@ -247,7 +267,8 @@ def test_over_long_info_blocks_before_anything_is_created(client: TestClient) ->
     route = respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 1}))
     session_id = open_session(client)
     res = send(client, session_id, {**CARD, "notes": "x" * 1200}, {"mode": "create"})
-    assert res.status_code == 422 and res.json()["code"] == "info_too_long"
+    assert res.status_code == 422 and res.json()["code"] == "validation_error"
+    assert "notes" in res.json()["errors"]
     assert route.call_count == 0  # not even the company was created
 
 
@@ -266,6 +287,7 @@ def test_send_for_an_unknown_session_reports_expired(client: TestClient) -> None
 def test_sent_contact_is_not_editable_and_not_logged(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
+    mock_details()
     respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 733}))
     with caplog.at_level("DEBUG"):
         session_id = open_session(client)
@@ -278,6 +300,7 @@ def test_sent_contact_is_not_editable_and_not_logged(
 
 @respx.mock
 def test_processing_and_sending_a_card_writes_nothing_to_the_data_dir(tmp_path: Path) -> None:
+    mock_details()
     respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 1}))
     with running(tmp_path) as (client, _):
         sign_in(client)
@@ -312,10 +335,16 @@ def test_a_mock_send_returns_what_would_have_been_sent_and_calls_nobody(
     assert res.status_code == 200
     body = res.json()
     assert body["sent"] is True and body["person_id"].startswith("9") and body["contact"] is None
-    payload = body["demo_payload"]
+    preview = body["demo_payload"]
+    payload = preview["person"]
     assert payload["last_name"] == "Meier" and payload["first_name"] == "Anna"
-    assert "Email: anna@acme.org" in payload["info"] and "Phone: +49 30 1234" in payload["info"]
-    assert payload["fb_custom_fields"] == [{"id": "16786", "name": "ContactPilot", "value": "Sync"}]
+    assert "Email" not in payload.get("info", "")
+    assert payload["fb_custom_fields"] == [{"id": 16786, "value": "Sync"}]
+    (email,) = preview["emails"]
+    assert email["email"] == "anna@acme.org" and email["fb_person_id"] == int(body["person_id"])
+    (phone,) = preview["phones"]
+    assert phone["phone"] == "+49 30 1234"
+    payload = preview
     # the preview stays available while the session lives
     assert client.get(f"/api/sessions/{session_id}").json()["demo_payload"] == payload
 
@@ -328,9 +357,11 @@ def test_a_mock_company_only_send_returns_the_company_payload(
     res = send(client, session_id, {"company": "Neu & Gut e.V."}, {"mode": "create"})
     assert res.status_code == 200 and res.json()["record_type"] == "company"
     assert res.json()["demo_payload"] == {
-        "is_company": True,
-        "company_name": "Neu & Gut e.V.",
-        "last_name": "Neu & Gut e.V.",
+        "company": {
+            "is_company": True,
+            "company_name": "Neu & Gut e.V.",
+            "last_name": "Neu & Gut e.V.",
+        }
     }
 
 
@@ -340,13 +371,14 @@ def test_a_mock_person_with_a_new_company_shows_the_linked_company_id(
     client, _ = mock_setup
     session_id = open_session(client)
     res = send(client, session_id, CARD, {"mode": "create"})
-    payload = res.json()["demo_payload"]
+    payload = res.json()["demo_payload"]["person"]
     assert isinstance(payload["company_id"], int) and payload["company_id"] >= 900001
-    assert "Company:" not in payload["info"]
+    assert "Company:" not in payload.get("info", "")
 
 
 @respx.mock
 def test_a_live_send_returns_no_payload(client: TestClient) -> None:
+    mock_details()
     respx.post(PERSONS_URL).mock(return_value=httpx.Response(201, json={"id": 733}))
     session_id = open_session(client)
     res = send(client, session_id, CARD)
@@ -369,5 +401,122 @@ def test_a_refused_mock_send_shows_nothing_and_stays_open(
     client, _ = mock_setup
     session_id = open_session(client)
     res = send(client, session_id, {**CARD, "notes": "x" * 2000})
-    assert res.status_code == 422 and res.json()["code"] == "info_too_long"
+    assert res.status_code == 422 and "notes" in res.json()["errors"]
+    assert client.get(f"/api/sessions/{session_id}").json()["sent"] is False
+
+
+# ---- person first, then one request per detail ---------------------------------------------------
+FULL_CARD = {
+    **CARD,
+    "mobile": "+49 170 1",
+    "street": "Hauptstr. 1",
+    "postal_code": "10115",
+    "city": "Berlin",
+    "country": "Deutschland",
+    "website": "https://acme.org",
+}
+
+
+def all_routes() -> dict[str, respx.Route]:
+    from app.fundraisingbox.client import ADDRESSES_URL, WEBSITES_URL
+
+    ids = {"person": 700, "email": 701, "phone": 702, "address": 703, "website": 704}
+    urls = {
+        "person": PERSONS_URL,
+        "email": EMAILS_URL,
+        "phone": PHONES_URL,
+        "address": ADDRESSES_URL,
+        "website": WEBSITES_URL,
+    }
+    return {
+        k: respx.post(urls[k]).mock(return_value=httpx.Response(201, json={"id": ids[k]}))
+        for k in urls
+    }
+
+
+@respx.mock
+def test_a_full_card_sends_the_person_then_each_detail_with_the_new_id(
+    client: TestClient,
+) -> None:
+    routes = all_routes()
+    session_id = open_session(client, FULL_CARD)
+    res = send(client, session_id, FULL_CARD)
+    assert res.status_code == 200 and res.json()["person_id"] == "700"
+    assert [call.request.url.path for r in routes.values() for call in r.calls] == [
+        "/v1/persons.json",
+        "/v1/personEmailAddresses.json",
+        "/v1/personPhones.json",
+        "/v1/personPhones.json",
+        "/v1/personAddresses.json",
+        "/v1/personWebsites.json",
+    ]
+    phones = fb_bodies(routes["phone"])
+    assert [p["type"] for p in phones] == ["work", "other"]
+    assert [p["is_main"] for p in phones] == [True, False]
+    assert fb_bodies(routes["address"])[0]["country"] == "DE"
+    for name in ("email", "phone", "address", "website"):
+        assert all(b["fb_person_id"] == 700 for b in fb_bodies(routes[name]))
+
+
+@respx.mock
+def test_a_card_with_only_a_name_sends_only_the_person(client: TestClient) -> None:
+    routes = all_routes()
+    card = {"last_name": "Meier"}
+    session_id = open_session(client, card)
+    assert send(client, session_id, card).status_code == 200
+    assert routes["person"].call_count == 1
+    assert sum(r.call_count for k, r in routes.items() if k != "person") == 0
+
+
+@respx.mock
+def test_a_company_only_card_attaches_its_details_to_the_company(client: TestClient) -> None:
+    routes = all_routes()
+    card = {"company": "Acme GmbH", "email": "info@acme.org"}
+    session_id = open_session(client, card)
+    res = send(client, session_id, card, {"mode": "create"})
+    assert res.status_code == 200 and res.json()["record_type"] == "company"
+    assert fb_bodies(routes["email"])[0]["fb_person_id"] == 700
+
+
+@respx.mock
+def test_nothing_is_created_when_a_limit_is_exceeded(client: TestClient) -> None:
+    routes = all_routes()
+    card = {**CARD, "phone": "1" * 51, "city": "x" * 101}
+    session_id = open_session(client, card)
+    res = send(client, session_id, card, {"mode": "create"})
+    assert res.status_code == 422 and set(res.json()["errors"]) == {"phone", "city"}
+    assert sum(r.call_count for r in routes.values()) == 0
+
+
+@respx.mock
+def test_a_failure_part_way_keeps_the_person_and_a_retry_sends_only_what_is_missing(
+    client: TestClient,
+) -> None:
+    routes = all_routes()
+    routes["phone"].mock(side_effect=[httpx.Response(400), httpx.Response(201, json={"id": 800})])
+    session_id = open_session(client)
+    failed = send(client, session_id, CARD)
+    assert failed.status_code == 502 and failed.json()["code"] == "partly_sent"
+    assert "phone" in failed.json()["message"] and "email" not in failed.json()["message"]
+    assert client.get(f"/api/sessions/{session_id}").json()["sent"] is False
+
+    corrected = {**CARD, "phone": "+49 30 9999"}
+    retry = send(client, session_id, corrected)
+    assert retry.status_code == 200 and retry.json()["person_id"] == "700"
+    assert routes["person"].call_count == 1  # never a second person
+    assert routes["email"].call_count == 1  # finished steps are not repeated
+    assert fb_bodies(routes["phone"])[1]["phone"] == "+49 30 9999"
+
+
+@respx.mock
+def test_a_second_failure_is_reported_again_and_the_session_stays_open(
+    client: TestClient,
+) -> None:
+    routes = all_routes()
+    routes["phone"].mock(return_value=httpx.Response(400))
+    session_id = open_session(client)
+    for _ in range(2):
+        res = send(client, session_id, CARD)
+        assert res.status_code == 502 and res.json()["code"] == "partly_sent"
+    assert routes["person"].call_count == 1
     assert client.get(f"/api/sessions/{session_id}").json()["sent"] is False

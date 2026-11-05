@@ -1,0 +1,36 @@
+# Tasks
+
+## 1. Schema rules: limits, countries and payloads
+
+- [x] 1.1 Add the documented limits as constants and a check that lists every problem at once (field name to message: last name 100, first name 100, title 50, position 200, company 1000, email 100 and valid format, phone and mobile 50, street 300, postal code 100, city 100, website 1000, info text 1000) and raise one `validation_error` before any request; the info text problem is reported under `notes` and replaces the `info_too_long` code. Verify with tests that each limit passes at its length and is refused one character over, that two problems are named in one answer, and that a valid contact passes. (files: app/fundraisingbox/mapping.py, tests/test_fb_mapping.py)
+- [x] 1.2 Add the country table (German and English names to 2-letter codes, a 2-letter value accepted as is, case-insensitive, unknown text returns nothing). Verify with tests for "Deutschland", "germany", "AT", " Österreich ", "Schweiz", an unknown text, and an empty string. (files: app/fundraisingbox/countries.py, tests/test_countries.py)
+- [x] 1.3 Rework the payload builders: the person body has only documented fields and the custom field `{"id": 16786, "value": "Sync"}`; the info text holds only notes, the unlinked company and an unconvertible country text; new builders for email, phone, address and website records (type `work`, mobile `other`, `is_main` on the first of each kind, `website_type` `homepage`, country as code, no state); the company body cuts `last_name` to 100 and keeps the full `company_name`. Verify with tests for each builder, for an info text that is empty when nothing needs noting, for the unlinked-company and unknown-country lines, for the long company name, and that no email, phone, address or website line appears in info. (files: app/fundraisingbox/mapping.py, tests/test_fb_mapping.py)
+- [ ] 1.4 Checkpoint: owner reviews and commits this group (tasks 1.1 to 1.3)
+
+## 2. Client, gateway and mock
+
+- [x] 2.1 Make the client's request function take the URL and add the four create calls for email, phone, address and website (`personEmailAddresses`, `personPhones`, `personAddresses`, `personWebsites`), each returning the new id. Verify with respx tests for the URL, basic-auth token, body and returned id of each call, a 400 reported as an error without the token in its message, an unreachable server, and that no request is made without a token. (files: app/fundraisingbox/client.py, tests/test_fb_client.py)
+- [x] 2.2 Add the four methods to the gateway and to the mock, building the same bodies with the same limits and returning each body as the record's payload; keep the existing person and company calls. Verify with tests that the mock needs no network (respx with no routes), gives distinct ids, refuses what live refuses and records nothing, and that the live client and the mock both satisfy the gateway. (files: app/fundraisingbox/gateway.py, app/fundraisingbox/mock.py, tests/test_fb_mock.py)
+- [ ] 2.3 Checkpoint: owner reviews and commits this group (tasks 2.1 to 2.2)
+
+## 3. The multi-step send
+
+- [x] 3.1 Remember on the session what was already created: the person (id and payload) and a map of finished steps (`email`, `phone`, `mobile`, `address`, `website`) with their payloads; discard it with the session. Verify with tests in the session store that the state is kept between sends, is dropped with the session, and is not part of what the session reports to the user. (files: app/sessions.py, tests/test_sessions.py)
+- [x] 3.2 Rewrite the send as ordered steps: check everything first, create the company when asked, create the person, then each detail step that has a value, mark the session sent only when all succeeded, and in mock mode return the new `demo_payload` shape (`person` or `company`, plus lists of emails, phones, addresses and websites). A company-only card attaches its details to the company. Verify with live-mode tests (respx) for the exact sequence of calls and bodies for a full card, a card with only an email, a linked company and a created company, a company-only card, and that nothing is created when a limit is exceeded. (files: app/send.py, tests/test_api_send.py)
+- [x] 3.3 Handle a failure part way: keep the person and the finished steps, answer `502` with code `partly_sent` and a message that says the person exists, which details are missing and why, and leave the session open; a retry runs only the missing steps and never creates a second person, and a corrected value is sent as corrected. Verify with tests for a failure on the second step, a retry that sends only what is missing, a retry after correcting the rejected phone number, a second failure, and that the session is marked sent only after the last step. (files: app/send.py, tests/test_api_send.py)
+- [x] 3.4 Update the tests that expected the old shape: the `info_too_long` code, the info lines for channel data, the string custom field id, and the single-record mock preview, and the done-screen test data. Verify that the whole Python suite and `npm test` in `frontend/` pass and that `npm run api:check` reports the types up to date. (files: tests/test_api_send.py, tests/test_fb_mapping.py, tests/test_fb_client.py, frontend/src/screens/DoneScreen.test.tsx)
+- [ ] 3.5 Checkpoint: owner reviews and commits this group (tasks 3.1 to 3.4)
+
+## 4. Screen, docs and final checks
+
+- [ ] 4.1 Check that the review screen shows the `partly_sent` message and the field messages from the new validation error, keeps the entries and allows a retry; change the screen only if a test shows it does not. Verify with Testing Library tests for a `partly_sent` error and a `validation_error` naming `email` and `notes`. (files: frontend/src/screens/ReviewScreen.tsx, frontend/src/screens/ReviewScreen.test.tsx)
+- [ ] 4.2 Update the docs: the Sliplane guide and the demo plan say that the first live send is checked in FundraisingBox itself (person, email, phone, address, website and the ContactPilot field), and the importer docs no longer say contact details go into the info text. Verify with `frontend/src/docs.test.ts` and `tests/test_env_docs.py` and a read-through of the changed files. (files: docs/deployment-sliplane.md, docs/demo-day-plan.md, README.md)
+- [ ] 4.3 Run everything: `uv run pytest -q`, `uv run ruff check .`, `uv run mypy app`, `npm test` and `npm run api:check` in `frontend/`, and extend `scripts/smoke-container.sh` so a mock-mode send through the container returns a preview with the person and its detail records. Verify all pass. (files: scripts/smoke-container.sh)
+- [ ] 4.4 Checkpoint: owner reviews and commits this group (tasks 4.1 to 4.3)
+
+## Workflow follow-up
+
+These need the real FundraisingBox account. They are reference steps, not tracked tasks, so they do not hold up archiving this change.
+
+- On the first live send, open the created person in FundraisingBox and confirm the email, phone, mobile, address and website are there, the ContactPilot field is set, and the mobile number's type is acceptable. If FundraisingBox accepts `mobile` as a phone type, change the one constant described in design.md.
+- Before syncing specs, reconcile the "Field mapping" and "Contact channel data preserved" requirements in `build-contact-card-importer` (see Migration plan in design.md).
