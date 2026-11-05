@@ -18,5 +18,5 @@
 
 - [x] 3.1 Document `FUNDRAISINGBOX_MODE` in the README table and `.env.example` (the existing documentation test must pass), the Sliplane runbook (including a go-live checklist line "set `FUNDRAISINGBOX_MODE=live` and add the token") and update `docs/demo-day-plan.md` to use mock mode; verify `pytest tests/test_env_docs.py` and a read-through of the changed docs
 - [x] 3.2 Container smoke check in mock mode with no token: extend `scripts/smoke-container.sh` so a container with `FUNDRAISINGBOX_MODE=mock` and no token is healthy, reports `mock`, and a card sent through the API returns a demo record without any outbound call; verify the script passes
-- [ ] 3.3 End-to-end in a real browser against the real server in mock mode (headless Chrome, no model key needed by using the API to create the session): sign in, review, pick an example company, send, and see the banner, the wording and the payload; verify by running it once and recording the result in the demo plan
+- [x] 3.3 End-to-end in a real browser against the real server in mock mode (headless Chrome, no model key needed by using the API to create the session): sign in, review, pick an example company, send, and see the banner, the wording and the payload; verify by running it once and recording the result in the demo plan
 - [ ] 3.4 Checkpoint: owner reviews and commits this group (tasks 3.1 to 3.3)

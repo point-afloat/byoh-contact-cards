@@ -121,3 +121,12 @@ are signed out at once; explain what stays on the server (accounts only, never c
 - That the real FundraisingBox connection works for every case: it is deliberately not part of this
   demo, so before real use set `FUNDRAISINGBOX_MODE=live`, add the token and check a send in
   FundraisingBox itself.
+
+## Mock mode browser check (2026-11-05)
+
+Headless Chrome against the built image in mock mode, with a stand-in model and no FundraisingBox
+token: the eye button reveals the typed password; sign-in works; the mock banner shows on the scan
+and review pages; the extracted card appears; the example company "Acme GmbH" can be chosen; after
+sending, the done screen says "Demo record created (not sent)" and the payload shows the person with
+its email, phone, address (country `DE`) and website records, each linked to the new person, with no
+contact lines in `info`. No console errors, failed requests or security-policy violations.
